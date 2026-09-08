@@ -36,13 +36,16 @@ type DayState = {
 
 /** Loads and mutates one day window. Every write goes back through storage. */
 export function useDay(date: string): DayState {
+  const { dayStart } = useSettings();
   const [blocks, setBlocks] = useState<TimeBlock[]>([]);
   const [loading, setLoading] = useState(true);
   const dateRef = useRef(date);
   dateRef.current = date;
+  const dayStartRef = useRef(dayStart);
+  dayStartRef.current = dayStart;
 
   const reload = useCallback(async () => {
-    const loaded = await storage.getBlocks(dateRef.current);
+    const loaded = await storage.getBlocks(dateRef.current, dayStartRef.current);
     setBlocks(loaded);
     setLoading(false);
   }, []);
@@ -50,7 +53,7 @@ export function useDay(date: string): DayState {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    storage.getBlocks(date).then((loaded) => {
+    storage.getBlocks(date, dayStart).then((loaded) => {
       if (cancelled) return;
       setBlocks(loaded);
       setLoading(false);
@@ -58,11 +61,11 @@ export function useDay(date: string): DayState {
     return () => {
       cancelled = true;
     };
-  }, [date]);
+  }, [date, dayStart]);
 
   const addBlock = useCallback(
     async (input: NewTimeBlock) => {
-      await storage.createBlock(input);
+      await storage.createBlock(input, dayStartRef.current);
       await reload();
     },
     [reload],
@@ -70,7 +73,7 @@ export function useDay(date: string): DayState {
 
   const editBlock = useCallback(
     async (id: string, patch: Partial<NewTimeBlock>) => {
-      await storage.updateBlock(id, patch);
+      await storage.updateBlock(id, patch, dayStartRef.current);
       await reload();
     },
     [reload],

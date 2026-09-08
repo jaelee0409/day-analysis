@@ -34,7 +34,7 @@ export default function HistoryPage() {
     const tracked = await storage.getTrackedDays();
     const keys = tracked.includes(todayKey) ? tracked : [todayKey, ...tracked];
     setDays(keys);
-    setBlocksByDay(await storage.getBlocksForDays(keys));
+    setBlocksByDay(await storage.getBlocksForDays(keys, dayStart));
     setSelected((current) => current ?? keys[0] ?? todayKey);
   }, [todayKey]);
 

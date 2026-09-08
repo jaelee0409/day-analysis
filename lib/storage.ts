@@ -156,32 +156,45 @@ function readSettings(): Settings {
  * bounced back to the user as a validation error.
  * ------------------------------------------------------------------ */
 
-function resolveOverlaps(blocks: TimeBlock[], incoming: TimeBlock, dayStart: number): TimeBlock[] {
-  const next = blockRange(incoming, dayStart);
-  if (next.duration <= 0) return blocks;
+/**
+ * What a new block does to the blocks already there, expressed as a change set
+ * rather than a rewritten world.
+ *
+ * The browser store could get away with handing back the whole array, because
+ * writing it costs the same either way. A database cannot: saving one block
+ * would rewrite every row you own. Naming the three specific effects keeps the
+ * localStorage path honest and lets the Postgres one issue three statements.
+ */
+export type BlockDiff = {
+  /** Ids of blocks the new one swallowed whole. */
+  deleted: string[];
+  /** Blocks trimmed at one end. */
+  updated: TimeBlock[];
+  /** Tails created when the new block landed inside an existing one. */
+  inserted: TimeBlock[];
+};
 
-  const result: TimeBlock[] = [];
-  for (const block of blocks) {
-    if (block.id === incoming.id || block.date !== incoming.date) {
-      result.push(block);
-      continue;
-    }
+export function resolveOverlaps(existing: TimeBlock[], incoming: TimeBlock, dayStart: number): BlockDiff {
+  const diff: BlockDiff = { deleted: [], updated: [], inserted: [] };
+  const next = blockRange(incoming, dayStart);
+  if (next.duration <= 0) return diff;
+
+  for (const block of existing) {
+    if (block.id === incoming.id || block.date !== incoming.date) continue;
 
     const range = blockRange(block, dayStart);
-    if (range.end <= next.start || range.start >= next.end) {
-      result.push(block);
-      continue;
-    }
+    if (range.end <= next.start || range.start >= next.end) continue;
 
     if (range.start >= next.start && range.end <= next.end) {
-      continue; // Fully covered.
+      diff.deleted.push(block.id);
+      continue;
     }
 
     const stamp = now();
     if (range.start < next.start && range.end > next.end) {
-      // The new block lands in the middle: keep the head and the tail.
-      result.push({ ...block, endTime: offsetToClock(next.start, dayStart), updatedAt: stamp });
-      result.push({
+      // The new block lands in the middle: keep the head, insert the tail.
+      diff.updated.push({ ...block, endTime: offsetToClock(next.start, dayStart), updatedAt: stamp });
+      diff.inserted.push({
         ...block,
         id: uid(),
         startTime: offsetToClock(next.end, dayStart),
@@ -192,13 +205,23 @@ function resolveOverlaps(blocks: TimeBlock[], incoming: TimeBlock, dayStart: num
     }
 
     if (range.start < next.start) {
-      result.push({ ...block, endTime: offsetToClock(next.start, dayStart), updatedAt: stamp });
+      diff.updated.push({ ...block, endTime: offsetToClock(next.start, dayStart), updatedAt: stamp });
     } else {
-      result.push({ ...block, startTime: offsetToClock(next.end, dayStart), updatedAt: stamp });
+      diff.updated.push({ ...block, startTime: offsetToClock(next.end, dayStart), updatedAt: stamp });
     }
   }
 
-  return result;
+  return diff;
+}
+
+/** Replays a diff over an in-memory array. The database replays it as SQL. */
+function applyDiff(blocks: TimeBlock[], diff: BlockDiff): TimeBlock[] {
+  const removed = new Set(diff.deleted);
+  const updates = new Map(diff.updated.map((b) => [b.id, b]));
+  return [
+    ...blocks.filter((b) => !removed.has(b.id)).map((b) => updates.get(b.id) ?? b),
+    ...diff.inserted,
+  ];
 }
 
 function sortBlocks(blocks: TimeBlock[], dayStart: number): TimeBlock[] {
@@ -320,9 +343,8 @@ export const storage = {
     return read<TimeBlock[]>(KEYS.blocks, []);
   },
 
-  async getBlocks(date: string): Promise<TimeBlock[]> {
+  async getBlocks(date: string, dayStart: number): Promise<TimeBlock[]> {
     ensureMigrated();
-    const dayStart = toMinutes(readSettings().dayStartsAt);
     const all = read<TimeBlock[]>(KEYS.blocks, []);
     return sortBlocks(
       all.filter((b) => b.date === date),
@@ -331,9 +353,8 @@ export const storage = {
   },
 
   /** One round trip for a set of days, which is what History and Dashboard need. */
-  async getBlocksForDays(dates: string[]): Promise<Record<string, TimeBlock[]>> {
+  async getBlocksForDays(dates: string[], dayStart: number): Promise<Record<string, TimeBlock[]>> {
     ensureMigrated();
-    const dayStart = toMinutes(readSettings().dayStartsAt);
     const wanted = new Set(dates);
     const grouped: Record<string, TimeBlock[]> = {};
     for (const date of dates) grouped[date] = [];
@@ -344,30 +365,24 @@ export const storage = {
     return grouped;
   },
 
-  async createBlock(input: NewTimeBlock): Promise<TimeBlock> {
+  async createBlock(input: NewTimeBlock, dayStart: number): Promise<TimeBlock> {
     ensureMigrated();
-    const dayStart = toMinutes(readSettings().dayStartsAt);
     const stamp = now();
     const block: TimeBlock = { ...input, id: uid(), createdAt: stamp, updatedAt: stamp };
     const all = read<TimeBlock[]>(KEYS.blocks, []);
-    write(KEYS.blocks, [...resolveOverlaps(all, block, dayStart), block]);
+    write(KEYS.blocks, [...applyDiff(all, resolveOverlaps(all, block, dayStart)), block]);
     return block;
   },
 
-  async updateBlock(id: string, patch: Partial<NewTimeBlock>): Promise<TimeBlock | null> {
+  async updateBlock(id: string, patch: Partial<NewTimeBlock>, dayStart: number): Promise<TimeBlock | null> {
     ensureMigrated();
-    const dayStart = toMinutes(readSettings().dayStartsAt);
     const all = read<TimeBlock[]>(KEYS.blocks, []);
     const existing = all.find((b) => b.id === id);
     if (!existing) return null;
 
     const updated: TimeBlock = { ...existing, ...patch, updatedAt: now() };
-    const others = resolveOverlaps(
-      all.filter((b) => b.id !== id),
-      updated,
-      dayStart,
-    );
-    write(KEYS.blocks, [...others, updated]);
+    const others = all.filter((b) => b.id !== id);
+    write(KEYS.blocks, [...applyDiff(others, resolveOverlaps(others, updated, dayStart)), updated]);
     return updated;
   },
 

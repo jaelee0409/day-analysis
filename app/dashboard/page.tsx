@@ -40,7 +40,7 @@ export default function DashboardPage() {
   }, [range, todayKey]);
 
   useEffect(() => {
-    storage.getBlocksForDays(keys).then(setBlocksByDay);
+    storage.getBlocksForDays(keys, dayStart).then(setBlocksByDay);
   }, [keys]);
 
   const totals = useMemo(() => {

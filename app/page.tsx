@@ -24,7 +24,7 @@ export default function TodayPage() {
   /* The seven days before today, used only to say whether today is unusual. */
   useEffect(() => {
     const keys = recentKeys(key, 8).slice(0, 7);
-    storage.getBlocksForDays(keys).then(setPriorDays);
+    storage.getBlocksForDays(keys, dayStart).then(setPriorDays);
   }, [key, blocks.length]);
 
   /**
