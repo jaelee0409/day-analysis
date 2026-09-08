@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { InsightCard } from "@/components/dashboard/InsightCard";
+import { RhythmPanel } from "@/components/dashboard/RhythmPanel";
 import { TimeDistribution } from "@/components/dashboard/TimeDistribution";
 import { WeeklyChart } from "@/components/dashboard/WeeklyChart";
 import { Card, EmptyState, PanelTitle, Segmented, Stat } from "@/components/ui/primitives";
-import { rangeObservations, rangeTotals } from "@/lib/analytics";
+import { rangeObservations, rangeTotals, rhythm } from "@/lib/analytics";
 import { useToday } from "@/lib/hooks";
 import { useSettings } from "@/lib/settings-context";
 import { storage } from "@/lib/storage";
@@ -61,6 +62,8 @@ export default function DashboardPage() {
   );
 
   const weekChartDays = range === "week" ? totals.days : totals.days.slice(-7);
+
+  const measures = useMemo(() => rhythm(keys, blocksByDay, dayStart), [keys, blocksByDay, dayStart]);
 
   if (!ready) return <div className="h-[60vh]" aria-hidden="true" />;
 
@@ -129,13 +132,15 @@ export default function DashboardPage() {
             </p>
           </Card>
 
-          <div className="lg:max-w-[720px]">
+          <div>
             <InsightCard
               question={RANGE_QUESTION[range]}
               spend={totals.byCategory}
               observations={observations}
             />
           </div>
+
+          <RhythmPanel measures={measures} dayStart={dayStart} />
 
           <div className="grid items-start gap-5 lg:grid-cols-2">
             <TimeDistribution

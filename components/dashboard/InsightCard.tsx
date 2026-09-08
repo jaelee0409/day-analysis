@@ -19,13 +19,17 @@ export function InsightCard({
   spend: CategoryTotal[];
   observations: Observation[];
 }) {
+  // The card sits in a 352px rail on Today and across the full width on the
+  // Dashboard, so it measures its own box rather than the viewport: stacked
+  // when narrow, spend beside observations when there is room.
   return (
-    <Card className="overflow-hidden">
+    <Card className="@container overflow-hidden">
       <div className="px-6 pt-6">
         <h2 className="ask text-[26px] text-ink">{question}</h2>
       </div>
 
-      <ul className="mt-5 px-6">
+      <div className="@min-[720px]:grid @min-[720px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] @min-[720px]:items-start">
+      <ul className="mt-5 px-6 @min-[720px]:mb-6">
         {spend.slice(0, 6).map((entry) => (
           <li key={entry.id} className="flex items-baseline gap-3 border-t border-hairline py-2.5 first:border-t-0">
             <span className="shrink-0" style={{ color: entry.color }}>
@@ -45,7 +49,7 @@ export function InsightCard({
       </ul>
 
       {observations.length > 0 ? (
-        <div className="mt-5 border-t border-line bg-[#fafbfb] px-6 py-5">
+        <div className="mt-5 border-t border-line bg-[#fafbfb] px-6 py-5 @min-[720px]:mt-5 @min-[720px]:border-l @min-[720px]:border-t-0 @min-[720px]:self-stretch">
           <ul className="space-y-3">
             {observations.map((observation) => (
               <li key={observation.id} className="flex items-baseline gap-2.5 text-[13.5px] text-ink-soft">
@@ -56,6 +60,7 @@ export function InsightCard({
           </ul>
         </div>
       ) : null}
+      </div>
     </Card>
   );
 }

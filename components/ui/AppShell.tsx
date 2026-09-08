@@ -7,7 +7,8 @@ const NAV = [
   { href: "/", label: "Today" },
   { href: "/history", label: "History" },
   { href: "/dashboard", label: "Dashboard" },
-  { href: "/experiment", label: "Experiment" },
+  // Experiment still lives at /experiment; it is out of the nav until it earns
+  // its place back.
   { href: "/settings", label: "Settings" },
 ];
 

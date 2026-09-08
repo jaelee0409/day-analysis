@@ -381,3 +381,122 @@ export function rangeObservations(
 
   return out;
 }
+
+/* ------------------------------------------------------------------ *
+ * Rhythm
+ *
+ * Regularity rather than amount: what time things actually happened, day
+ * after day. Every definition below is one sentence long on purpose — a
+ * number you cannot explain is a number you cannot act on, and the panel
+ * prints the rule next to the figure.
+ *
+ * The definitions also survive the way sleep is recorded. A night that runs
+ * 23:00 to 07:00 is two blocks, one at the end of one day window and one at
+ * the start of the next, so "wake" looks only before midday and "bed" only
+ * after it. That also keeps every value inside a single half of the clock,
+ * so the median never has to wrap.
+ * ------------------------------------------------------------------ */
+
+const MIDDAY = 720;
+
+export type RhythmPoint = { date: string; value: number };
+
+export type RhythmMeasure = {
+  id: "wake" | "bed" | "firstMeal" | "night";
+  label: string;
+  /** Clock values are offsets into the day window; durations are lengths. */
+  kind: "clock" | "duration";
+  points: RhythmPoint[];
+  median: number;
+  /**
+   * Mean distance from the median, in minutes.
+   *
+   * Median absolute deviation was the first choice and it lies on small
+   * samples: with seven of thirteen nights identical it reports zero drift
+   * while the rest swing an hour. The mean counts every day, so a habit only
+   * reads as steady when it actually is.
+   */
+  spread: number;
+  rule: string;
+};
+
+function medianOf(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1 ? sorted[mid] : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
+}
+
+/** The end of the last sleep block that finishes before midday. */
+export function wakeOffset(blocks: TimeBlock[], dayStart: number): number | null {
+  const ends = blocks
+    .filter((b) => b.category === "sleep")
+    .map((b) => blockRange(b, dayStart).end)
+    .filter((end) => end > 0 && end <= MIDDAY);
+  return ends.length > 0 ? Math.max(...ends) : null;
+}
+
+/** The start of the first sleep block that begins after midday. */
+export function bedOffset(blocks: TimeBlock[], dayStart: number): number | null {
+  const starts = blocks
+    .filter((b) => b.category === "sleep")
+    .map((b) => blockRange(b, dayStart).start)
+    .filter((start) => start >= MIDDAY);
+  return starts.length > 0 ? Math.min(...starts) : null;
+}
+
+/** The start of the earliest block recorded as food. */
+export function firstMealOffset(blocks: TimeBlock[], dayStart: number): number | null {
+  const starts = blocks
+    .filter((b) => b.category === "food")
+    .map((b) => blockRange(b, dayStart).start);
+  return starts.length > 0 ? Math.min(...starts) : null;
+}
+
+export function rhythm(
+  keys: string[],
+  blocksByDay: Record<string, TimeBlock[]>,
+  dayStart: number,
+): RhythmMeasure[] {
+  const wake: RhythmPoint[] = [];
+  const bed: RhythmPoint[] = [];
+  const meal: RhythmPoint[] = [];
+  const night: RhythmPoint[] = [];
+
+  keys.forEach((key, index) => {
+    const blocks = blocksByDay[key] ?? [];
+    const wokeAt = wakeOffset(blocks, dayStart);
+    const wentToBedAt = bedOffset(blocks, dayStart);
+    const ateAt = firstMealOffset(blocks, dayStart);
+
+    if (wokeAt !== null) wake.push({ date: key, value: wokeAt });
+    if (wentToBedAt !== null) bed.push({ date: key, value: wentToBedAt });
+    if (ateAt !== null) meal.push({ date: key, value: ateAt });
+
+    // A night belongs to the morning it ends on, so it needs both days.
+    const previous = keys[index - 1];
+    const previousBed = previous ? bedOffset(blocksByDay[previous] ?? [], dayStart) : null;
+    if (previousBed !== null && wokeAt !== null) {
+      night.push({ date: key, value: MINUTES_PER_DAY - previousBed + wokeAt });
+    }
+  });
+
+  const build = (
+    id: RhythmMeasure["id"],
+    label: string,
+    kind: RhythmMeasure["kind"],
+    points: RhythmPoint[],
+    rule: string,
+  ): RhythmMeasure => {
+    if (points.length === 0) return { id, label, kind, points, median: 0, spread: 0, rule };
+    const med = medianOf(points.map((p) => p.value));
+    const drift = points.reduce((sum, p) => sum + Math.abs(p.value - med), 0) / points.length;
+    return { id, label, kind, points, median: med, spread: Math.round(drift), rule };
+  };
+
+  return [
+    build("wake", "Wake", "clock", wake, "The end of the last sleep block that finishes before midday."),
+    build("bed", "Bed", "clock", bed, "The start of the first sleep block that begins after midday."),
+    build("firstMeal", "First meal", "clock", meal, "The start of the earliest block recorded as food."),
+    build("night", "Night's sleep", "duration", night, "From the previous evening's bed time to that morning's wake."),
+  ];
+}

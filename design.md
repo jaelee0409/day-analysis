@@ -49,6 +49,11 @@ When you need a new visual device, ask what the instrument equivalent is. The
 day-strip in `DailySummary`, the mini-strip in the History list, and the quarter
 marks on the experiment progress bar are all the same idea at different sizes.
 
+The Rhythm scatter follows the same rule from the other direction: every row
+shares one fixed ±3h scale, because an axis that stretched to fit each measure
+would draw a steady habit and a chaotic one identically. A gauge whose scale
+moves is not a gauge.
+
 ## 3. Color
 
 The palette is cool paper and graphite ink. Tokens live in `@theme` in

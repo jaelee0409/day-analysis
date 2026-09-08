@@ -6,7 +6,6 @@ import { InsightCard } from "@/components/dashboard/InsightCard";
 import { TimeDistribution } from "@/components/dashboard/TimeDistribution";
 import { Timeline } from "@/components/timeline/Timeline";
 import { TodoList } from "@/components/todo/TodoList";
-import { Button } from "@/components/ui/primitives";
 import { dayObservations, dayTotals, rangeTotals } from "@/lib/analytics";
 import { useDay, useToday } from "@/lib/hooks";
 import { useSettings } from "@/lib/settings-context";
@@ -81,17 +80,9 @@ export default function TodayPage() {
 
   return (
     <div>
-      <header className="mb-7 flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
-        <div>
-          <p className="text-[13px] text-muted">{formatDayLong(key)}</p>
-          <h1 className="ask mt-1.5 text-[clamp(28px,4vw,38px)] text-ink">How did you spend your day?</h1>
-        </div>
-        <Button variant="primary" onClick={recordNow}>
-          Record time
-          <kbd className="rounded border border-white/25 px-1 text-[11px] font-normal leading-[16px] text-white/70">
-            R
-          </kbd>
-        </Button>
+      <header className="mb-7">
+        <p className="text-[13px] text-muted">{formatDayLong(key)}</p>
+        <h1 className="ask mt-1.5 text-[clamp(28px,4vw,38px)] text-ink">How did you spend your day?</h1>
       </header>
 
       <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_352px]">
