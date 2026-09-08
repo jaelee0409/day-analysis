@@ -36,15 +36,24 @@ export default function DashboardPage() {
 
   const [range, setRange] = useState<RangeId>("week");
   const [blocksByDay, setBlocksByDay] = useState<Record<string, TimeBlock[]>>({});
+  const [daysTracked, setDaysTracked] = useState<number | null>(null);
 
   const keys = useMemo(() => {
     if (range === "week") return weekKeys(todayKey);
     return recentKeys(todayKey, range === "7" ? 7 : 30);
   }, [range, todayKey]);
 
+  // dayStart was read here but missing from the deps, so changing the day
+  // start left this page showing the old buckets until a reload.
   useEffect(() => {
     storage.getBlocksForDays(keys, dayStart).then(setBlocksByDay);
-  }, [keys]);
+  }, [keys, dayStart]);
+
+  // Every day ever recorded, not only the ones in view: the number that says
+  // how long you have kept this up.
+  useEffect(() => {
+    storage.getTrackedDays().then((days) => setDaysTracked(days.length));
+  }, [blocksByDay]);
 
   const totals = useMemo(() => {
     // Today is only as long as it has been so far; the rest is not yet lived.
@@ -99,7 +108,7 @@ export default function DashboardPage() {
             <PanelTitle onInk aside={t("dashboard.elapsed", { hours: formatHours(spanMinutes, locale) })}>
               {t("dashboard.overview")}
             </PanelTitle>
-            <div className="mt-4 grid grid-cols-2 gap-6 sm:grid-cols-4">
+            <div className="mt-4 grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-5">
               <Stat
                 value={formatDuration(totals.tracked, locale)}
                 label={t("today.tracked")}
@@ -123,6 +132,12 @@ export default function DashboardPage() {
                 label={t("today.unaccounted")}
                 size="md"
                 tone="inverse-muted"
+              />
+              <Stat
+                value={daysTracked === null ? "—" : String(daysTracked)}
+                label={t("dashboard.daysTracked")}
+                size="md"
+                tone="inverse"
               />
             </div>
 
@@ -156,6 +171,7 @@ export default function DashboardPage() {
               totals={totals.byCategory}
               title={t("dashboard.byCategory")}
               aside={t("dashboard.trackedAside", { hours: formatHours(totals.tracked, locale) })}
+              recordedDays={totals.activeDays}
             />
             <WeeklyChart
               days={weekChartDays}

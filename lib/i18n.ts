@@ -31,6 +31,8 @@ export const DICTIONARY = {
   "nav.dashboard": { en: "Dashboard", ko: "분석" },
   "nav.experiment": { en: "Experiment", ko: "실험" },
   "nav.settings": { en: "Settings", ko: "설정" },
+  "nav.openMenu": { en: "Open menu", ko: "메뉴 열기" },
+  "nav.closeMenu": { en: "Close menu", ko: "메뉴 닫기" },
   "app.name": { en: "Day Analysis", ko: "Day Analysis" },
 
   /* ---------------- sign in ---------------- */
@@ -125,6 +127,11 @@ export const DICTIONARY = {
   "dashboard.overview": { en: "Overview", ko: "요약" },
   "dashboard.elapsed": { en: "{hours} elapsed", ko: "{hours} 경과" },
   "dashboard.perDay": { en: "per recorded day", ko: "기록한 하루 평균" },
+  "dashboard.daysTracked": { en: "days tracked in all", ko: "지금까지 기록한 날" },
+  "dist.total": { en: "Total", ko: "합계" },
+  "dist.perDay": { en: "Per day", ko: "하루 평균" },
+  "dist.scale": { en: "Scale", ko: "기준" },
+  "dist.perDayAside": { en: "across {days} recorded days", ko: "기록한 {days}일 기준" },
   "dashboard.barNote": {
     en: "The bar spans every hour in the period. The dark run at the end is time you did not record.",
     ko: "막대는 기간 전체의 시간을 나타냅니다. 끝의 어두운 부분은 기록하지 않은 시간입니다.",

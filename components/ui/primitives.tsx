@@ -237,14 +237,17 @@ export function Stat({
     inverse: "text-white",
     "inverse-muted": "text-white/45",
   }[tone];
+  // Korean durations run longer than English ones — "22h 14m" against
+  // "22시간 14분" — so these step down on narrow screens rather than break a
+  // figure across two lines in the middle of its unit.
   const sizes = {
-    sm: "text-[20px] font-medium",
-    md: "text-[30px] font-medium",
-    lg: "text-[44px] font-normal",
+    sm: "text-[17px] font-medium sm:text-[20px]",
+    md: "text-[24px] font-medium sm:text-[30px]",
+    lg: "text-[36px] font-normal sm:text-[44px]",
   }[size];
   return (
     <div>
-      <div className={`figure ${sizes} ${tones}`}>{value}</div>
+      <div className={`figure whitespace-nowrap ${sizes} ${tones}`}>{value}</div>
       <div className={`mt-1.5 text-[12.5px] ${tone.startsWith("inverse") ? "text-white/50" : "text-muted"}`}>
         {label}
       </div>
