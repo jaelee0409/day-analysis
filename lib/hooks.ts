@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { storage } from "@/lib/storage";
+import { useLiveTable, useRefreshOnReturn } from "@/lib/sync";
 import { MINUTES_PER_DAY, currentDayKey, nowOffset } from "@/lib/time";
 import type { NewTimeBlock, TimeBlock } from "@/types/time";
 import { useSettings } from "@/lib/settings-context";
@@ -78,6 +79,10 @@ export function useDay(date: string): DayState {
     },
     [reload],
   );
+
+  // The other device may have recorded something since this screen loaded.
+  useRefreshOnReturn(reload);
+  useLiveTable("blocks", reload);
 
   const removeBlock = useCallback(
     async (id: string) => {

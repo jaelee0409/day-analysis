@@ -39,6 +39,15 @@ route to write**.
 5. Export your JSON from Settings and import it once, mapping `snake_case`
    columns to the `camelCase` model.
 
+## Live updates between devices
+
+`schema.sql` is enough to sync: every screen refetches when its tab is focused
+again, which covers recording on a phone and then looking at a laptop.
+
+For a screen to update while it is still open, also run `realtime.sql`, which
+adds `blocks` and `todos` to the `supabase_realtime` publication. Without it
+the subscription simply never fires and the focus refetch still covers you.
+
 ## The three things that are not just typing
 
 **`resolveOverlaps` has to become a diff.** Today a single save rewrites the

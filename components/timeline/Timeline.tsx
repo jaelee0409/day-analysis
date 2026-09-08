@@ -53,7 +53,12 @@ export function Timeline({
 }: TimelineProps) {
   const { locale, t } = useLocale();
   const trackRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const dragOriginRef = useRef<{ column: number; offset: number } | null>(null);
+  const dragOriginRef = useRef<{
+    column: number;
+    offset: number;
+    clientY: number;
+    touch: boolean;
+  } | null>(null);
   const anchoredRef = useRef<string>("");
 
   const [draft, setDraft] = useState<{ column: number; start: number; end: number } | null>(null);
@@ -81,10 +86,20 @@ export function Timeline({
 
   /* ---------------- create by click or drag ---------------- */
 
+  /**
+   * A finger cannot sweep a range and scroll the page with the same gesture,
+   * and scrolling is what a finger is nearly always doing. So touch only ever
+   * taps: press and release without travelling opens the recorder on that one
+   * slot, and anything longer belongs to the browser as a scroll.
+   */
   const beginDraft = (event: React.PointerEvent<HTMLDivElement>, column: number) => {
     if (event.button !== 0) return;
+    const touch = event.pointerType !== "mouse";
     const origin = snap(offsetAt(event.clientY, column), interval);
-    dragOriginRef.current = { column, offset: origin };
+    dragOriginRef.current = { column, offset: origin, clientY: event.clientY, touch };
+
+    if (touch) return; // No preview, and no capture: the page must stay scrollable.
+
     setDraft({ column, start: origin, end: Math.min(origin + interval, COLUMNS[column] + COLUMN_SPAN) });
     event.currentTarget.setPointerCapture(event.pointerId);
   };
@@ -92,9 +107,12 @@ export function Timeline({
   const extendDraft = (event: React.PointerEvent<HTMLDivElement>, column: number) => {
     const origin = dragOriginRef.current;
     if (!origin) {
-      setHover({ column, offset: snap(offsetAt(event.clientY, column), interval) });
+      if (event.pointerType === "mouse") {
+        setHover({ column, offset: snap(offsetAt(event.clientY, column), interval) });
+      }
       return;
     }
+    if (origin.touch) return;
     const cursor = snap(offsetAt(event.clientY, origin.column), interval);
     setDraft({
       column: origin.column,
@@ -103,13 +121,36 @@ export function Timeline({
     });
   };
 
-  const commitDraft = () => {
-    if (!dragOriginRef.current) return;
+  /** Travel beyond this on touch is a scroll, not a recording. */
+  const TAP_SLOP = 10;
+
+  const commitDraft = (event: React.PointerEvent<HTMLDivElement>) => {
+    const origin = dragOriginRef.current;
     dragOriginRef.current = null;
+    if (!origin) return;
+
+    if (origin.touch) {
+      setDraft(null);
+      if (Math.abs(event.clientY - origin.clientY) > TAP_SLOP) return;
+      setTarget({
+        mode: "create",
+        start: origin.offset,
+        end: Math.min(origin.offset + interval, COLUMNS[origin.column] + COLUMN_SPAN),
+      });
+      return;
+    }
+
     setDraft((current) => {
       if (current) setTarget({ mode: "create", start: current.start, end: current.end });
       return null;
     });
+  };
+
+  /** The browser taking over to scroll. Abandon the gesture rather than record it. */
+  const abandonDraft = () => {
+    dragOriginRef.current = null;
+    setDraft(null);
+    setHover(null);
   };
 
   /* ---------------- resize ---------------- */
@@ -287,11 +328,14 @@ export function Timeline({
                     {/* Capture layer for click-and-drag recording. Sits under the blocks. */}
                     <div
                       className="absolute inset-y-0 right-0 cursor-crosshair"
-                      style={{ left: GUTTER }}
+                      // Set outright rather than through a utility: Tailwind
+                      // composes touch-action from custom properties, and this
+                      // decides whether a finger can scroll the page at all.
+                      style={{ left: GUTTER, touchAction: "pan-y" }}
                       onPointerDown={(event) => beginDraft(event, column)}
                       onPointerMove={(event) => extendDraft(event, column)}
                       onPointerUp={commitDraft}
-                      onPointerCancel={commitDraft}
+                      onPointerCancel={abandonDraft}
                       onPointerLeave={() => setHover(null)}
                     />
 

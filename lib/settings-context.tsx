@@ -22,11 +22,20 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
-    storage.getSettings().then((stored) => {
-      if (cancelled) return;
-      setSettings(stored);
-      setReady(true);
-    });
+    storage
+      .getSettings()
+      .then((stored) => {
+        if (!cancelled) setSettings(stored);
+      })
+      .catch((error) => {
+        // Falling back to defaults keeps the app usable and lets the real
+        // failure surface where it happens. Leaving `ready` false instead
+        // would hold a blank screen forever with nothing to read.
+        console.error("Could not load settings; using defaults.", error);
+      })
+      .finally(() => {
+        if (!cancelled) setReady(true);
+      });
     return () => {
       cancelled = true;
     };

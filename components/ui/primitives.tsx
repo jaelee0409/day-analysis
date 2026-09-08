@@ -154,7 +154,15 @@ export function Modal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-      <div className="veil-in absolute inset-0 bg-[#15171a]/25" onClick={onClose} aria-hidden="true" />
+      {/* Dismiss on press, not click. A tap that opens this modal is followed by
+          a compatibility click carrying pointerType "touch", which lands on the
+          backdrop that has just appeared under the finger and closes it again
+          before it can be seen. A press has no such echo. */}
+      <div
+        className="veil-in absolute inset-0 bg-[#15171a]/25"
+        onPointerDown={onClose}
+        aria-hidden="true"
+      />
       <div
         ref={panelRef}
         role="dialog"

@@ -151,6 +151,15 @@
   .activity:focus-within .activity-handle {
     opacity: 1;
   }
+
+  /* A finger has no hover, so these strips were invisible targets that dragged
+     a block's time on an ordinary tap. There is no way to reveal them on
+     touch, so they do not exist there. */
+  @media (pointer: coarse) {
+    .activity-handle {
+      display: none;
+    }
+  }
 }
 
 /* ------------------------------------------------------------------ *

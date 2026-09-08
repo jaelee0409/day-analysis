@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Card, PanelTitle } from "@/components/ui/primitives";
 import { useT } from "@/lib/locale-context";
 import { storage } from "@/lib/storage";
+import { useLiveTable, useRefreshOnReturn } from "@/lib/sync";
 import type { Todo } from "@/types/time";
 
 /**
@@ -24,6 +25,9 @@ export function TodoList() {
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  useRefreshOnReturn(reload);
+  useLiveTable("todos", reload);
 
   const add = async () => {
     const text = draft.trim();
