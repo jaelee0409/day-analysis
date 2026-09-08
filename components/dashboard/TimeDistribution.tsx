@@ -19,11 +19,15 @@ export function TimeDistribution({
   aside,
   emptyMessage,
   recordedDays = 0,
+  footer,
 }: {
   totals: CategoryTotal[];
   title: string;
   aside?: string;
   emptyMessage?: string;
+  /** Extra reading below the bars. Home puts its observations here rather
+      than printing the same categories again in a second card. */
+  footer?: React.ReactNode;
   /** Recorded days behind these totals. Above one, a per-day scale is offered. */
   recordedDays?: number;
 }) {
@@ -70,6 +74,8 @@ export function TimeDistribution({
           ))}
         </div>
       )}
+
+      {footer ? <div className="mt-4 border-t border-hairline pt-4">{footer}</div> : null}
     </Card>
   );
 }

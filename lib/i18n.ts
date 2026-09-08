@@ -26,8 +26,7 @@ type Entry = Record<Locale, string>;
 
 export const DICTIONARY = {
   /* ---------------- chrome ---------------- */
-  "nav.today": { en: "Today", ko: "오늘" },
-  "nav.history": { en: "History", ko: "기록" },
+  "nav.home": { en: "Home", ko: "홈" },
   "nav.dashboard": { en: "Dashboard", ko: "분석" },
   "nav.experiment": { en: "Experiment", ko: "실험" },
   "nav.routines": { en: "Routines", ko: "루틴" },
@@ -69,6 +68,15 @@ export const DICTIONARY = {
     ko: "타임라인의 빈 칸을 눌러 첫 블록을 기록해 보세요.",
   },
 
+  /* ---------------- date picker ---------------- */
+  "calendar.open": { en: "Choose a day", ko: "날짜 고르기" },
+  "calendar.previous": { en: "Previous month", ko: "이전 달" },
+  "calendar.next": { en: "Next month", ko: "다음 달" },
+  "calendar.today": { en: "Today", ko: "오늘" },
+  "calendar.legend": { en: "A mark means you recorded something", ko: "표시가 있는 날은 기록이 있는 날입니다" },
+  "calendar.trackedDay": { en: "{date}, recorded", ko: "{date}, 기록 있음" },
+  "calendar.emptyDay": { en: "{date}, nothing recorded", ko: "{date}, 기록 없음" },
+
   /* ---------------- timeline ---------------- */
   "timeline.trackedIn": { en: "{duration} tracked", ko: "{duration} 기록함" },
   "timeline.nothingYet": { en: "nothing yet", ko: "아직 없음" },
@@ -99,24 +107,6 @@ export const DICTIONARY = {
   "todo.markDone": { en: "Mark {text} as done", ko: "{text} 완료로 표시" },
   "todo.markNotDone": { en: "Mark {text} as not done", ko: "{text} 미완료로 표시" },
   "todo.deleteItem": { en: "Delete {text}", ko: "{text} 삭제" },
-
-  /* ---------------- history ---------------- */
-  "history.question": { en: "What have your days looked like?", ko: "지난 날들은 어땠나요?" },
-  "history.daysRecorded": { en: "{count} days recorded", ko: "{count}일 기록함" },
-  "history.dayRecorded": { en: "{count} day recorded", ko: "{count}일 기록함" },
-  "history.today": { en: "Today", ko: "오늘" },
-  "history.trackedLabel": { en: "{duration} tracked", ko: "{duration} 기록" },
-  "history.focusedLabel": { en: "{duration} focused", ko: "{duration} 집중" },
-  "history.editHint": {
-    en: "Edit any block the same way you record it.",
-    ko: "기록할 때와 같은 방법으로 블록을 수정할 수 있습니다.",
-  },
-  "history.emptyTitle": { en: "No days recorded yet", ko: "아직 기록한 날이 없습니다" },
-  "history.emptyBody": {
-    en: "Once you record time on the Today page, every day you track shows up here with its totals, and you can open any of them to edit.",
-    ko: "오늘 화면에서 시간을 기록하면, 기록한 날이 합계와 함께 여기에 쌓입니다. 아무 날이나 열어 수정할 수 있습니다.",
-  },
-  "history.breakdown": { en: "Breakdown", ko: "분류별" },
 
   /* ---------------- dashboard ---------------- */
   "dashboard.question": { en: "What does the pattern say?", ko: "어떤 패턴이 보이나요?" },
