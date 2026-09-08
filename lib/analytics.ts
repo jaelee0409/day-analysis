@@ -233,6 +233,11 @@ function percent(part: number, whole: number): number {
   return whole > 0 ? Math.round((part / whole) * 100) : 0;
 }
 
+/**
+ * Not rendered at the moment — Home dropped its observations — but kept
+ * whole because it was asked for only "for now". The Dashboard's range
+ * observations below are unaffected.
+ */
 export function dayObservations(
   totals: DayTotals,
   blocks: TimeBlock[],

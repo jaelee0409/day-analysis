@@ -3,18 +3,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { LocalArchiveNotice } from "@/components/auth/LocalArchiveNotice";
 import { DailySummary } from "@/components/dashboard/DailySummary";
-import { ObservationList } from "@/components/dashboard/ObservationList";
 import { TimeDistribution } from "@/components/dashboard/TimeDistribution";
 import { Timeline } from "@/components/timeline/Timeline";
 import { TodoList } from "@/components/todo/TodoList";
 import { DayPicker } from "@/components/ui/DayPicker";
-import { dayObservations, dayTotals, rangeTotals } from "@/lib/analytics";
+import { dayTotals } from "@/lib/analytics";
 import { useDay, useToday } from "@/lib/hooks";
 import { useLocale } from "@/lib/locale-context";
 import { useSettings } from "@/lib/settings-context";
 import { storage } from "@/lib/storage";
-import { MINUTES_PER_DAY, blockRange, recentKeys, snap } from "@/lib/time";
-import type { TimeBlock } from "@/types/time";
+import { MINUTES_PER_DAY, blockRange, snap } from "@/lib/time";
 
 /**
  * One day at a time, whichever day you choose.
@@ -37,14 +35,7 @@ export default function HomePage() {
   const { blocks, addBlock, editBlock, removeBlock } = useDay(key);
 
   const [openAt, setOpenAt] = useState<{ start: number; end: number; token: number } | null>(null);
-  const [priorDays, setPriorDays] = useState<Record<string, TimeBlock[]>>({});
   const [tracked, setTracked] = useState<Set<string>>(new Set());
-
-  /* The seven days before this one, used only to say whether it is unusual. */
-  useEffect(() => {
-    const keys = recentKeys(key, 8).slice(0, 7);
-    storage.getBlocksForDays(keys, dayStart).then(setPriorDays);
-  }, [key, dayStart, blocks.length]);
 
   /* Which days the calendar should mark. */
   useEffect(() => {
@@ -82,19 +73,6 @@ export default function HomePage() {
   }, [recordNow]);
 
   const totals = useMemo(() => dayTotals(key, blocks, dayStart, elapsed), [key, blocks, dayStart, elapsed]);
-
-  const observations = useMemo(() => {
-    const priorKeys = Object.keys(priorDays);
-    const prior = rangeTotals(priorKeys, priorDays, dayStart);
-    return dayObservations(
-      totals,
-      blocks,
-      dayStart,
-      prior.activeDays >= 2
-        ? { averageProductive: prior.productive / prior.activeDays }
-        : undefined,
-    ).slice(0, 4);
-  }, [totals, blocks, dayStart, priorDays]);
 
   if (!ready) {
     return <div className="h-[60vh]" aria-hidden="true" />;
@@ -139,9 +117,6 @@ export default function HomePage() {
                 : undefined
             }
             emptyMessage={t("today.empty")}
-            footer={
-              observations.length > 0 ? <ObservationList observations={observations} /> : undefined
-            }
           />
         </div>
       </div>
