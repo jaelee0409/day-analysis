@@ -1,0 +1,184 @@
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------ *
+ * Tokens
+ *
+ * Cool paper and graphite ink. Exactly one chromatic voice in the chrome:
+ * the signal red, reserved for the current-time line and anything that is
+ * genuinely live. Category hues appear only inside data marks.
+ * ------------------------------------------------------------------ */
+
+@theme {
+  --color-paper: #f5f6f6;
+  --color-surface: #ffffff;
+  --color-ink: #15171a;
+  --color-ink-soft: #454b50;
+  --color-muted: #6e7478;
+  --color-faint: #9ba1a5;
+  --color-line: #e3e6e6;
+  --color-hairline: #eef0f0;
+  --color-signal: #e2483d;
+
+  /* The two halves of the day sit on different papers, so which half you are
+     reading is legible before you reach the labels. Same lightness, opposite
+     temperature: morning light and evening light, not two colours. */
+  --color-track-early: #fbfcfe;
+  --color-track-late: #faf7f3;
+
+  --font-sans: var(--font-instrument-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-serif: var(--font-instrument-serif), ui-serif, Georgia, "Times New Roman", serif;
+
+  --radius-card: 14px;
+
+  --shadow-lift: 0 1px 2px rgba(21, 23, 26, 0.04), 0 8px 24px -12px rgba(21, 23, 26, 0.12);
+  --shadow-float: 0 2px 6px rgba(21, 23, 26, 0.06), 0 24px 60px -20px rgba(21, 23, 26, 0.22);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-feature-settings: "cv05" 1;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Every number in this app is read as a measurement, so figures line up. */
+  .tnum,
+  time,
+  input[type="time"] {
+    font-variant-numeric: tabular-nums;
+  }
+
+  ::selection {
+    background: #15171a;
+    color: #ffffff;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  button {
+    cursor: pointer;
+  }
+}
+
+@layer components {
+  /* The reflective voice of the app: used only where it asks a question. */
+  .ask {
+    font-family: var(--font-serif);
+    font-weight: 400;
+    letter-spacing: -0.01em;
+    line-height: 1.1;
+  }
+
+  .card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-card);
+  }
+
+  /* The one filled panel a page is allowed: its headline reading. Ink, never
+     a hue, so the hierarchy costs nothing from the palette. */
+  .card-lead {
+    background: var(--color-ink);
+    border: 1px solid var(--color-ink);
+    border-radius: var(--radius-card);
+    color: #ffffff;
+  }
+
+  .figure {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.035em;
+    line-height: 0.95;
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Timeline
+ *
+ * These live in the components layer on purpose: utilities sit in a later
+ * layer, so a class like `border-t-0` can still open a block's seam where it
+ * continues into the other half of the day.
+ * ------------------------------------------------------------------ */
+
+@layer components {
+  /* The block sits on a tinted ground with a solid spine on the reading edge. */
+  .activity {
+    --tint: color-mix(in srgb, var(--mark) 9%, #ffffff);
+    --edge: color-mix(in srgb, var(--mark) 26%, #ffffff);
+    background: var(--tint);
+    border: 1px solid var(--edge);
+    border-left: 3px solid var(--mark);
+    transition:
+      background 140ms ease,
+      box-shadow 140ms ease;
+  }
+
+  .activity:hover {
+    background: color-mix(in srgb, var(--mark) 14%, #ffffff);
+    box-shadow: var(--shadow-lift);
+  }
+
+  .activity-handle {
+    opacity: 0;
+    transition: opacity 120ms ease;
+  }
+
+  .activity:hover .activity-handle,
+  .activity:focus-within .activity-handle {
+    opacity: 1;
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Motion
+ *
+ * One orchestrated moment per surface, always in answer to an action.
+ * ------------------------------------------------------------------ */
+
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes veil-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.sheet-in {
+  animation: sheet-in 180ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+
+.veil-in {
+  animation: veil-in 140ms ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
