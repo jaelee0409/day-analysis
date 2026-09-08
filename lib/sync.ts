@@ -18,7 +18,19 @@ import { supabase } from "@/lib/supabase";
  *      See supabase/realtime.sql.
  */
 
-/** Refetches when the tab is looked at again, or the network comes back. */
+/** How often an open, visible screen checks for someone else's changes. */
+const POLL_MS = 45_000;
+
+/**
+ * Refetches when the tab is looked at again, the network returns, or enough
+ * time has passed.
+ *
+ * The poll is not redundant with the focus listener. Two screens open side by
+ * side never blur, so no focus event ever fires — you record on the phone,
+ * glance at the laptop that has been sitting there all along, and nothing has
+ * told it to look again. It is also the only layer that works when the
+ * realtime publication has not been set up.
+ */
 export function useRefreshOnReturn(refresh: () => void): void {
   const latest = useRef(refresh);
   latest.current = refresh;
@@ -30,10 +42,15 @@ export function useRefreshOnReturn(refresh: () => void): void {
     document.addEventListener("visibilitychange", run);
     window.addEventListener("focus", run);
     window.addEventListener("online", run);
+
+    // Skipped while hidden, so a backgrounded tab costs nothing.
+    const timer = window.setInterval(run, POLL_MS);
+
     return () => {
       document.removeEventListener("visibilitychange", run);
       window.removeEventListener("focus", run);
       window.removeEventListener("online", run);
+      window.clearInterval(timer);
     };
   }, []);
 }
