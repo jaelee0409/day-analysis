@@ -18,7 +18,17 @@ route to write**.
 
 ## Steps
 
-1. Create a project, then run `schema.sql` in the SQL editor.
+1. Create a project, then run `schema.sql`.
+
+   If the SQL editor answers `25006: cannot execute ... in a read-only
+   transaction`, the session is read-only, not the SQL — look for the
+   read-only toggle in the editor. Failing that, the same file runs fine over
+   a normal connection:
+
+   ```bash
+   psql "$SUPABASE_DB_URL" -f supabase/schema.sql   # Connect -> Session pooler
+   supabase db push                                  # or via the CLI
+   ```
 2. `npm i @supabase/supabase-js @supabase/ssr`, and put the project URL and
    anon key in `.env.local` as `NEXT_PUBLIC_SUPABASE_URL` and
    `NEXT_PUBLIC_SUPABASE_ANON_KEY`.

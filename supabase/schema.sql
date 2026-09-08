@@ -1,7 +1,11 @@
 -- Day Analysis — Supabase schema
 --
--- Paste into the Supabase SQL editor, or keep it as the first file in
--- `supabase/migrations/` if you adopt the CLI.
+-- Plain DDL on purpose: no functions, no triggers, no DO blocks. The one
+-- trigger this file used to carry only stamped updated_at, which the app
+-- already writes itself, so it was doing nothing the client wasn't. Keeping
+-- this to tables, constraints and policies means it runs anywhere a
+-- connection does — SQL editor, psql, or `supabase db push` — and it can be
+-- re-run safely.
 --
 -- Two decisions worth knowing before you read on:
 --
@@ -12,27 +16,13 @@
 --      trip lossless. If you ever switch to `time`, relax the regex in
 --      `toMinutes` in the same commit.
 --
---   2. Category is text with a check, not a Postgres enum. Two categories have
---      already been renamed once (entertainment -> leisure, travel -> transit);
---      a check constraint makes the next rename an UPDATE plus a constraint
---      swap, where an enum would make it a type migration.
+--   2. Category is text with a check, not a Postgres enum. Three categories
+--      have already been renamed or added once (entertainment -> leisure,
+--      travel -> transit, chores); a check constraint makes the next change an
+--      UPDATE plus a constraint swap, where an enum would be a type migration.
 --
 -- Every table is scoped by user_id and closed by RLS, so the browser can talk
 -- to Supabase directly and no API route is needed.
-
--- ------------------------------------------------------------------
--- Helpers
--- ------------------------------------------------------------------
-
-create or replace function public.touch_updated_at()
-returns trigger
-language plpgsql
-as $$
-begin
-  new.updated_at = now();
-  return new;
-end;
-$$;
 
 -- ------------------------------------------------------------------
 -- Blocks — the recorded day
@@ -51,6 +41,7 @@ create table if not exists public.blocks (
   end_time    text not null,
   interval    smallint not null,
 
+  -- Both are written by the app, which owns them end to end.
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now(),
 
@@ -68,11 +59,6 @@ create table if not exists public.blocks (
 -- The query the app actually makes: one user, one day, or a run of days.
 create index if not exists blocks_user_date_idx on public.blocks (user_id, date);
 
-drop trigger if exists blocks_touch_updated_at on public.blocks;
-create trigger blocks_touch_updated_at
-  before update on public.blocks
-  for each row execute function public.touch_updated_at();
-
 -- ------------------------------------------------------------------
 -- Settings — one row per person
 -- ------------------------------------------------------------------
@@ -85,17 +71,11 @@ create table if not exists public.settings (
     'development', 'study', 'work', 'exercise', 'food',
     'hygiene', 'chores', 'sleep', 'leisure', 'social', 'transit', 'other'
   ],
-  updated_at         timestamptz not null default now(),
 
-  constraint settings_interval_valid check (interval in (15, 30, 60)),
-  constraint settings_day_start_shape check (day_starts_at ~ '^[0-2][0-9]:[0-5][0-9]$'),
-  constraint settings_has_a_category check (array_length(enabled_categories, 1) >= 1)
+  constraint settings_interval_valid   check (interval in (15, 30, 60)),
+  constraint settings_day_start_shape  check (day_starts_at ~ '^[0-2][0-9]:[0-5][0-9]$'),
+  constraint settings_has_a_category   check (array_length(enabled_categories, 1) >= 1)
 );
-
-drop trigger if exists settings_touch_updated_at on public.settings;
-create trigger settings_touch_updated_at
-  before update on public.settings
-  for each row execute function public.touch_updated_at();
 
 -- ------------------------------------------------------------------
 -- Experiment sessions — the block-size trial
@@ -148,29 +128,58 @@ alter table public.settings            enable row level security;
 alter table public.experiment_sessions enable row level security;
 alter table public.todos               enable row level security;
 
-do $$
-declare
-  t text;
-begin
-  foreach t in array array['blocks', 'settings', 'experiment_sessions', 'todos']
-  loop
-    execute format('drop policy if exists %I on public.%I', t || '_select_own', t);
-    execute format('drop policy if exists %I on public.%I', t || '_insert_own', t);
-    execute format('drop policy if exists %I on public.%I', t || '_update_own', t);
-    execute format('drop policy if exists %I on public.%I', t || '_delete_own', t);
+drop policy if exists blocks_select_own on public.blocks;
+drop policy if exists blocks_insert_own on public.blocks;
+drop policy if exists blocks_update_own on public.blocks;
+drop policy if exists blocks_delete_own on public.blocks;
 
-    execute format(
-      'create policy %I on public.%I for select using (auth.uid() = user_id)',
-      t || '_select_own', t);
-    execute format(
-      'create policy %I on public.%I for insert with check (auth.uid() = user_id)',
-      t || '_insert_own', t);
-    execute format(
-      'create policy %I on public.%I for update using (auth.uid() = user_id) with check (auth.uid() = user_id)',
-      t || '_update_own', t);
-    execute format(
-      'create policy %I on public.%I for delete using (auth.uid() = user_id)',
-      t || '_delete_own', t);
-  end loop;
-end;
-$$;
+create policy blocks_select_own on public.blocks
+  for select using (auth.uid() = user_id);
+create policy blocks_insert_own on public.blocks
+  for insert with check (auth.uid() = user_id);
+create policy blocks_update_own on public.blocks
+  for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy blocks_delete_own on public.blocks
+  for delete using (auth.uid() = user_id);
+
+drop policy if exists settings_select_own on public.settings;
+drop policy if exists settings_insert_own on public.settings;
+drop policy if exists settings_update_own on public.settings;
+drop policy if exists settings_delete_own on public.settings;
+
+create policy settings_select_own on public.settings
+  for select using (auth.uid() = user_id);
+create policy settings_insert_own on public.settings
+  for insert with check (auth.uid() = user_id);
+create policy settings_update_own on public.settings
+  for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy settings_delete_own on public.settings
+  for delete using (auth.uid() = user_id);
+
+drop policy if exists experiment_select_own on public.experiment_sessions;
+drop policy if exists experiment_insert_own on public.experiment_sessions;
+drop policy if exists experiment_update_own on public.experiment_sessions;
+drop policy if exists experiment_delete_own on public.experiment_sessions;
+
+create policy experiment_select_own on public.experiment_sessions
+  for select using (auth.uid() = user_id);
+create policy experiment_insert_own on public.experiment_sessions
+  for insert with check (auth.uid() = user_id);
+create policy experiment_update_own on public.experiment_sessions
+  for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy experiment_delete_own on public.experiment_sessions
+  for delete using (auth.uid() = user_id);
+
+drop policy if exists todos_select_own on public.todos;
+drop policy if exists todos_insert_own on public.todos;
+drop policy if exists todos_update_own on public.todos;
+drop policy if exists todos_delete_own on public.todos;
+
+create policy todos_select_own on public.todos
+  for select using (auth.uid() = user_id);
+create policy todos_insert_own on public.todos
+  for insert with check (auth.uid() = user_id);
+create policy todos_update_own on public.todos
+  for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy todos_delete_own on public.todos
+  for delete using (auth.uid() = user_id);
