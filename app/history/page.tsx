@@ -8,6 +8,7 @@ import { Card, EmptyState } from "@/components/ui/primitives";
 import { category } from "@/lib/categories";
 import { dayTotals } from "@/lib/analytics";
 import { useDay, useToday } from "@/lib/hooks";
+import { useLocale } from "@/lib/locale-context";
 import { useSettings } from "@/lib/settings-context";
 import { storage } from "@/lib/storage";
 import {
@@ -22,6 +23,7 @@ import type { TimeBlock } from "@/types/time";
 
 export default function HistoryPage() {
   const { settings, dayStart, ready } = useSettings();
+  const { locale, t } = useLocale();
   const { key: todayKey, elapsed } = useToday();
 
   const [days, setDays] = useState<string[]>([]);
@@ -109,15 +111,17 @@ export default function HistoryPage() {
     <div>
       <header className="mb-7">
         <p className="text-[13px] text-muted">
-          {recorded.length} {recorded.length === 1 ? "day" : "days"} recorded
+          {t(recorded.length === 1 ? "history.dayRecorded" : "history.daysRecorded", {
+            count: recorded.length,
+          })}
         </p>
-        <h1 className="ask mt-1.5 text-[clamp(28px,4vw,38px)] text-ink">What have your days looked like?</h1>
+        <h1 className="ask mt-1.5 text-[clamp(28px,4vw,38px)] text-ink">{t("history.question")}</h1>
       </header>
 
       {recorded.length === 0 ? (
         <EmptyState
-          title="No days recorded yet"
-          body="Once you record time on the Today page, every day you track shows up here with its totals, and you can open any of them to edit."
+          title={t("history.emptyTitle")}
+          body={t("history.emptyBody")}
         />
       ) : (
         <div className="grid gap-5">
@@ -161,14 +165,16 @@ export default function HistoryPage() {
                     >
                       {active ? <span className="absolute inset-x-0 top-0 h-[2px] bg-ink" /> : null}
                       <div className="text-[11.5px] text-faint">
-                        {day === todayKey ? "Today" : formatWeekday(day)}
+                        {day === todayKey ? t("history.today") : formatWeekday(day, locale)}
                       </div>
-                      <div className="mt-0.5 text-[13.5px] font-medium text-ink">{formatDayShort(day)}</div>
+                      <div className="mt-0.5 text-[13.5px] font-medium text-ink">
+                        {formatDayShort(day, locale)}
+                      </div>
                       <div className="mt-2 text-[12px] tabular-nums text-ink-soft">
-                        {formatDuration(summary.tracked)} tracked
+                        {t("history.trackedLabel", { duration: formatDuration(summary.tracked, locale) })}
                       </div>
                       <div className="text-[12px] tabular-nums text-faint">
-                        {formatDuration(summary.productive)} focused
+                        {t("history.focusedLabel", { duration: formatDuration(summary.productive, locale) })}
                       </div>
                       <MiniStrip blocks={dayBlocks} dayStart={dayStart} />
                     </button>
@@ -180,9 +186,9 @@ export default function HistoryPage() {
 
           <div className="flex flex-wrap items-baseline justify-between gap-3">
             <h2 className="text-[17px] font-semibold tracking-[-0.015em] text-ink">
-              {formatDayLong(activeKey)}
+              {formatDayLong(activeKey, locale)}
             </h2>
-            <p className="text-[12.5px] text-muted">Edit any block the same way you record it.</p>
+            <p className="text-[12.5px] text-muted">{t("history.editHint")}</p>
           </div>
 
           <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
@@ -199,7 +205,7 @@ export default function HistoryPage() {
             />
             <div className="grid gap-5 lg:sticky lg:top-[72px]">
               <DailySummary totals={totals} blocks={blocks} dayStart={dayStart} />
-              <TimeDistribution totals={totals.byCategory} title="Breakdown" />
+              <TimeDistribution totals={totals.byCategory} title={t("history.breakdown")} />
             </div>
           </div>
         </div>

@@ -2,6 +2,8 @@
 
 import { Card, Stat } from "@/components/ui/primitives";
 import { category } from "@/lib/categories";
+import type { MessageKey } from "@/lib/i18n";
+import { useLocale } from "@/lib/locale-context";
 import type { DayTotals } from "@/lib/analytics";
 import { MINUTES_PER_DAY, blockRange, formatDuration, offsetToClock } from "@/lib/time";
 import type { TimeBlock } from "@/types/time";
@@ -36,7 +38,7 @@ function DayStrip({
           <div
             key={block.id}
             className="absolute inset-y-0"
-            title={`${category(block.category).label} ${offsetToClock(range.start, dayStart)}–${offsetToClock(range.end, dayStart)}`}
+            title={`${offsetToClock(range.start, dayStart)}–${offsetToClock(range.end, dayStart)}`}
             style={{
               left: `${(range.start / MINUTES_PER_DAY) * 100}%`,
               width: `${(range.duration / MINUTES_PER_DAY) * 100}%`,
@@ -58,6 +60,7 @@ export function DailySummary({
   blocks: TimeBlock[];
   dayStart: number;
 }) {
+  const { locale, t } = useLocale();
   const coverage = totals.elapsed > 0 ? Math.round((totals.tracked / totals.elapsed) * 100) : 0;
 
   // This is the page's headline reading, so it is the one filled panel.
@@ -65,10 +68,10 @@ export function DailySummary({
     <Card tone="lead" className="p-5">
       <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
         <div className="whitespace-nowrap">
-          <Stat value={formatDuration(totals.tracked)} label="tracked" size="lg" tone="inverse" />
+          <Stat value={formatDuration(totals.tracked, locale)} label={t("today.tracked")} size="lg" tone="inverse" />
         </div>
         <span className="whitespace-nowrap pb-1 text-[12.5px] tabular-nums text-white/45">
-          {coverage}% of the day so far
+          {t("today.coverage", { percent: coverage })}
         </span>
       </div>
 
@@ -82,11 +85,16 @@ export function DailySummary({
       </div>
 
       <div className="mt-6 grid grid-cols-3 gap-4 border-t border-white/12 pt-5">
-        <Stat value={formatDuration(totals.productive)} label="focused work" size="sm" tone="inverse" />
-        <Stat value={formatDuration(totals.sleep)} label="sleep" size="sm" tone="inverse" />
         <Stat
-          value={formatDuration(totals.untracked)}
-          label="unaccounted"
+          value={formatDuration(totals.productive, locale)}
+          label={t("today.focused")}
+          size="sm"
+          tone="inverse"
+        />
+        <Stat value={formatDuration(totals.sleep, locale)} label={t("today.sleep")} size="sm" tone="inverse" />
+        <Stat
+          value={formatDuration(totals.untracked, locale)}
+          label={t("today.unaccounted")}
           size="sm"
           tone="inverse-muted"
         />

@@ -8,27 +8,30 @@ import { WeeklyChart } from "@/components/dashboard/WeeklyChart";
 import { Card, EmptyState, PanelTitle, Segmented, Stat } from "@/components/ui/primitives";
 import { rangeObservations, rangeTotals, rhythm } from "@/lib/analytics";
 import { useToday } from "@/lib/hooks";
+import { useLocale } from "@/lib/locale-context";
 import { useSettings } from "@/lib/settings-context";
 import { storage } from "@/lib/storage";
+import type { MessageKey } from "@/lib/i18n";
 import { formatDuration, formatHours, recentKeys, weekKeys } from "@/lib/time";
 import type { TimeBlock } from "@/types/time";
 
 type RangeId = "week" | "7" | "30";
 
-const RANGES: { value: RangeId; label: string }[] = [
-  { value: "week", label: "This week" },
-  { value: "7", label: "Last 7 days" },
-  { value: "30", label: "Last 30 days" },
-];
+const RANGE_LABEL: Record<RangeId, MessageKey> = {
+  week: "dashboard.week",
+  "7": "dashboard.last7",
+  "30": "dashboard.last30",
+};
 
-const RANGE_QUESTION: Record<RangeId, string> = {
-  week: "Where did your week go?",
-  "7": "Where did the last seven days go?",
-  "30": "Where did the last month go?",
+const RANGE_QUESTION: Record<RangeId, MessageKey> = {
+  week: "dashboard.weekQuestion",
+  "7": "dashboard.sevenQuestion",
+  "30": "dashboard.monthQuestion",
 };
 
 export default function DashboardPage() {
   const { dayStart, ready } = useSettings();
+  const { locale, t } = useLocale();
   const { key: todayKey, elapsed } = useToday();
 
   const [range, setRange] = useState<RangeId>("week");
@@ -72,44 +75,52 @@ export default function DashboardPage() {
       <header className="mb-7 flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
         <div>
           <p className="text-[13px] text-muted">
-            {totals.activeDays} of {keys.length} days recorded
+            {t("dashboard.daysOf", { active: totals.activeDays, total: keys.length })}
           </p>
-          <h1 className="ask mt-1.5 text-[clamp(28px,4vw,38px)] text-ink">
-            What does the pattern say?
-          </h1>
+          <h1 className="ask mt-1.5 text-[clamp(28px,4vw,38px)] text-ink">{t("dashboard.question")}</h1>
         </div>
-        <Segmented options={RANGES} value={range} onChange={setRange} label="Period" />
+        <Segmented
+          options={(["week", "7", "30"] as RangeId[]).map((value) => ({ value, label: t(RANGE_LABEL[value]) }))}
+          value={range}
+          onChange={setRange}
+          label={t("dashboard.period")}
+        />
       </header>
 
       {totals.tracked === 0 ? (
         <EmptyState
-          title="Nothing to analyse yet"
-          body="The dashboard reads whatever you have recorded. Track a day or two and the totals, weekly rhythm, and observations fill in on their own."
+          title={t("dashboard.emptyTitle")}
+          body={t("dashboard.emptyBody")}
         />
       ) : (
         <div className="grid gap-5">
           {/* The page's headline reading, so it takes the one filled panel. */}
           <Card tone="lead" className="p-5">
-            <PanelTitle onInk aside={`${formatHours(spanMinutes)} elapsed`}>
-              Overview
+            <PanelTitle onInk aside={t("dashboard.elapsed", { hours: formatHours(spanMinutes, locale) })}>
+              {t("dashboard.overview")}
             </PanelTitle>
             <div className="mt-4 grid grid-cols-2 gap-6 sm:grid-cols-4">
-              <Stat value={formatDuration(totals.tracked)} label="tracked" size="md" tone="inverse" />
               <Stat
-                value={formatDuration(totals.productive)}
-                label="focused work"
+                value={formatDuration(totals.tracked, locale)}
+                label={t("today.tracked")}
                 size="md"
                 tone="inverse"
               />
               <Stat
-                value={formatDuration(Math.round(totals.tracked / Math.max(1, totals.activeDays)))}
-                label="per recorded day"
+                value={formatDuration(totals.productive, locale)}
+                label={t("today.focused")}
                 size="md"
                 tone="inverse"
               />
               <Stat
-                value={formatDuration(unaccounted)}
-                label="unaccounted"
+                value={formatDuration(Math.round(totals.tracked / Math.max(1, totals.activeDays)), locale)}
+                label={t("dashboard.perDay")}
+                size="md"
+                tone="inverse"
+              />
+              <Stat
+                value={formatDuration(unaccounted, locale)}
+                label={t("today.unaccounted")}
                 size="md"
                 tone="inverse-muted"
               />
@@ -119,7 +130,7 @@ export default function DashboardPage() {
               {totals.byCategory.map((entry) => (
                 <div
                   key={entry.id}
-                  title={`${entry.label} ${formatDuration(entry.minutes)}`}
+                  title={`${t(`category.${entry.id}.label` as MessageKey)} ${formatDuration(entry.minutes, locale)}`}
                   style={{
                     width: `${(entry.minutes / Math.max(spanMinutes, 1)) * 100}%`,
                     background: entry.color,
@@ -127,14 +138,12 @@ export default function DashboardPage() {
                 />
               ))}
             </div>
-            <p className="mt-2 text-[12px] text-white/40">
-              The bar spans every hour in the period. The dark run at the end is time you did not record.
-            </p>
+            <p className="mt-2 text-[12px] text-white/40">{t("dashboard.barNote")}</p>
           </Card>
 
           <div>
             <InsightCard
-              question={RANGE_QUESTION[range]}
+              question={t(RANGE_QUESTION[range])}
               spend={totals.byCategory}
               observations={observations}
             />
@@ -145,13 +154,13 @@ export default function DashboardPage() {
           <div className="grid items-start gap-5 lg:grid-cols-2">
             <TimeDistribution
               totals={totals.byCategory}
-              title="Total by category"
-              aside={`${formatHours(totals.tracked)} tracked`}
+              title={t("dashboard.byCategory")}
+              aside={t("dashboard.trackedAside", { hours: formatHours(totals.tracked, locale) })}
             />
             <WeeklyChart
               days={weekChartDays}
               todayKey={todayKey}
-              title={range === "week" ? "Focused work this week" : "Focused work, last 7 days"}
+              title={t(range === "week" ? "chart.focusedWeek" : "chart.focusedSeven")}
             />
           </div>
         </div>

@@ -164,6 +164,24 @@ marks on a page built to keep every category equal. A line glyph inherits the
 colour of what it sits in, so a category hue reaches it only inside a data
 mark — and it goes grey when the category is switched off.
 
+## 6b. Two languages
+
+Every word lives in `lib/i18n.ts`, keyed and paired. `npm run i18n:check`
+fails on a missing key, an empty translation, or a {placeholder} present in one
+language and not the other — the failures that show a Korean reader an English
+fragment without anything crashing.
+
+**Never assemble a sentence from fragments in component code.** Korean puts its
+particles and verbs where English does not, so a sentence spliced together in
+JSX can only ever be right in one language. One sentence is one entry, with
+placeholders the caller fills. The same rule sends every number through
+`lib/time.ts`, so "3h 25m" and "3시간 25분" come from one code path.
+
+Instrument Serif carries no Hangul, so a Korean question would be set half in a
+serif and half in a sans. Korean editorial type marks emphasis by weight rather
+than by serif, so `:lang(ko) .ask` moves the whole line to the Korean face and
+gains weight instead. The voice survives; the mismatched pairing does not.
+
 ## 7. Anti-patterns
 
 These are the failures this design keeps producing when nobody is watching.
@@ -206,4 +224,4 @@ Recognize them and stop.
 - [ ] Numbers trace back to `lib/analytics.ts` over real blocks.
 - [ ] Nothing new plans the future; To do is the only exception.
 - [ ] Keyboard focus is visible, and motion is behind `prefers-reduced-motion`.
-- [ ] `npm run design:check` passes.
+- [ ] `npm run design:check` and `npm run i18n:check` pass.

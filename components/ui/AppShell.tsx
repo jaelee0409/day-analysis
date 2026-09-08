@@ -3,13 +3,16 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const NAV = [
-  { href: "/", label: "Today" },
-  { href: "/history", label: "History" },
-  { href: "/dashboard", label: "Dashboard" },
+import type { MessageKey } from "@/lib/i18n";
+import { useT } from "@/lib/locale-context";
+
+const NAV: { href: string; key: MessageKey }[] = [
+  { href: "/", key: "nav.today" },
+  { href: "/history", key: "nav.history" },
+  { href: "/dashboard", key: "nav.dashboard" },
   // Experiment still lives at /experiment; it is out of the nav until it earns
   // its place back.
-  { href: "/settings", label: "Settings" },
+  { href: "/settings", key: "nav.settings" },
 ];
 
 /** Three ticks of decreasing length — the measuring mark the whole app is built on. */
@@ -23,6 +26,7 @@ function RulerMark() {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const t = useT();
 
   return (
     <div className="min-h-screen">
@@ -45,7 +49,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     active ? "text-ink" : "text-muted hover:text-ink-soft"
                   }`}
                 >
-                  {item.label}
+                  {t(item.key)}
                   {active ? (
                     <span className="absolute inset-x-3 -bottom-[9px] h-[2px] rounded-full bg-ink" />
                   ) : null}

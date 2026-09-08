@@ -2,6 +2,8 @@
 
 import { CategoryIcon } from "@/components/ui/CategoryIcon";
 import { category } from "@/lib/categories";
+import type { MessageKey } from "@/lib/i18n";
+import { useLocale } from "@/lib/locale-context";
 import { formatDuration } from "@/lib/time";
 import type { TimeBlock } from "@/types/time";
 
@@ -38,9 +40,10 @@ export function TimeBlockItem({
   onOpen: (block: TimeBlock) => void;
   onResizeStart: (block: TimeBlock, edge: "start" | "end") => void;
 }) {
+  const { locale, t } = useLocale();
   const meta = category(block.category);
   const compact = layout.height < 40;
-  const title = block.title?.trim() || meta.label;
+  const title = block.title?.trim() || t(`category.${block.category}.label` as MessageKey);
 
   const edges = [
     continuesAbove ? "rounded-t-none border-t-0" : "rounded-t-lg",
@@ -66,7 +69,7 @@ export function TimeBlockItem({
         className={`flex h-full w-full flex-col gap-0.5 px-2.5 text-left ${
           compact ? "justify-center" : "justify-start pt-1.5"
         }`}
-        aria-label={`${title}, ${layout.startLabel} to ${layout.endLabel}, ${formatDuration(layout.minutes)}`}
+        aria-label={`${title}, ${layout.startLabel}–${layout.endLabel}, ${formatDuration(layout.minutes, locale)}`}
       >
         <span className={`flex min-w-0 items-center gap-1.5 ${compact ? "" : "mb-px"}`}>
           <span className="shrink-0" style={{ color: meta.color }}>
@@ -75,7 +78,7 @@ export function TimeBlockItem({
           <span className="truncate text-[13px] font-medium leading-tight text-ink">{title}</span>
           {compact ? (
             <span className="ml-auto shrink-0 text-[11px] tabular-nums text-muted">
-              {formatDuration(layout.minutes)}
+              {formatDuration(layout.minutes, locale)}
             </span>
           ) : null}
         </span>
@@ -84,7 +87,7 @@ export function TimeBlockItem({
             <span>
               {layout.startLabel} – {layout.endLabel}
             </span>
-            <span className="text-faint">{formatDuration(layout.minutes)}</span>
+            <span className="text-faint">{formatDuration(layout.minutes, locale)}</span>
           </span>
         )}
       </button>

@@ -9,6 +9,7 @@ import { Timeline } from "@/components/timeline/Timeline";
 import { TodoList } from "@/components/todo/TodoList";
 import { dayObservations, dayTotals, rangeTotals } from "@/lib/analytics";
 import { useDay, useToday } from "@/lib/hooks";
+import { useLocale } from "@/lib/locale-context";
 import { useSettings } from "@/lib/settings-context";
 import { storage } from "@/lib/storage";
 import { MINUTES_PER_DAY, blockRange, formatDayLong, recentKeys, snap } from "@/lib/time";
@@ -16,6 +17,7 @@ import type { TimeBlock } from "@/types/time";
 
 export default function TodayPage() {
   const { settings, ready } = useSettings();
+  const { locale, t } = useLocale();
   const { key, elapsed, dayStart } = useToday();
   const { blocks, addBlock, editBlock, removeBlock } = useDay(key);
 
@@ -70,7 +72,7 @@ export default function TodayPage() {
       blocks,
       dayStart,
       activeDays >= 2
-        ? { averageProductive: prior.productive / activeDays, label: "recent" }
+        ? { averageProductive: prior.productive / activeDays }
         : undefined,
     ).slice(0, 4);
   }, [totals, blocks, dayStart, priorDays]);
@@ -84,8 +86,8 @@ export default function TodayPage() {
       <LocalArchiveNotice onImported={() => window.location.reload()} />
 
       <header className="mb-7">
-        <p className="text-[13px] text-muted">{formatDayLong(key)}</p>
-        <h1 className="ask mt-1.5 text-[clamp(28px,4vw,38px)] text-ink">How did you spend your day?</h1>
+        <p className="text-[13px] text-muted">{formatDayLong(key, locale)}</p>
+        <h1 className="ask mt-1.5 text-[clamp(28px,4vw,38px)] text-ink">{t("today.question")}</h1>
       </header>
 
       <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_352px]">
@@ -108,12 +110,16 @@ export default function TodayPage() {
           <TodoList />
           <TimeDistribution
             totals={totals.byCategory}
-            title="Where the time landed"
-            aside={blocks.length > 0 ? `${blocks.length} ${blocks.length === 1 ? "block" : "blocks"}` : undefined}
-            emptyMessage="Click any empty slot on the timeline to record your first block."
+            title={t("today.landed")}
+            aside={
+              blocks.length > 0
+                ? t(blocks.length === 1 ? "today.block" : "today.blocks", { count: blocks.length })
+                : undefined
+            }
+            emptyMessage={t("today.empty")}
           />
           {totals.byCategory.length > 0 ? (
-            <InsightCard spend={totals.byCategory} observations={observations} />
+            <InsightCard question={t("auth.question")} spend={totals.byCategory} observations={observations} />
           ) : null}
         </div>
       </div>

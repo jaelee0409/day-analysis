@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/primitives";
 import { useAuth } from "@/lib/auth-context";
+import { useT } from "@/lib/locale-context";
 import { isSupabaseConfigured } from "@/lib/supabase";
 
 /** Google's mark, drawn rather than fetched, so the button costs no request. */
@@ -35,18 +36,15 @@ function GoogleMark() {
  */
 export function SignInGate({ children }: { children: React.ReactNode }) {
   const { session, ready, signInWithGoogle } = useAuth();
+  const t = useT();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   if (!isSupabaseConfigured) {
     return (
       <div className="mx-auto max-w-[520px] px-6 py-24">
-        <h1 className="ask text-[28px] text-ink">This copy is not connected to a database.</h1>
-        <p className="mt-3 text-[13.5px] leading-relaxed text-muted">
-          Set <code className="tabular-nums">NEXT_PUBLIC_SUPABASE_URL</code> and{" "}
-          <code className="tabular-nums">NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY</code>, then reload. See
-          supabase/README.md.
-        </p>
+        <h1 className="ask text-[28px] text-ink">{t("auth.unconfigured")}</h1>
+        <p className="mt-3 text-[13.5px] leading-relaxed text-muted">{t("auth.unconfiguredBody")}</p>
       </div>
     );
   }
@@ -58,12 +56,9 @@ export function SignInGate({ children }: { children: React.ReactNode }) {
   if (!session) {
     return (
       <div className="mx-auto flex min-h-[70vh] max-w-[420px] flex-col justify-center px-6">
-        <p className="text-[13px] text-muted">Day Analysis</p>
-        <h1 className="ask mt-1.5 text-[clamp(28px,5vw,36px)] text-ink">Where did your day go?</h1>
-        <p className="mt-4 max-w-[46ch] text-[13.5px] leading-relaxed text-muted">
-          Sign in and your days follow you between this browser and your phone. Nothing is shared with
-          anyone else.
-        </p>
+        <p className="text-[13px] text-muted">{t("app.name")}</p>
+        <h1 className="ask mt-1.5 text-[clamp(28px,5vw,36px)] text-ink">{t("auth.question")}</h1>
+        <p className="mt-4 max-w-[46ch] text-[13.5px] leading-relaxed text-muted">{t("auth.body")}</p>
 
         <div className="mt-7">
           <Button
@@ -76,14 +71,14 @@ export function SignInGate({ children }: { children: React.ReactNode }) {
                 await signInWithGoogle();
               } catch (cause) {
                 setBusy(false);
-                setError(cause instanceof Error ? cause.message : "Sign-in could not start.");
+                setError(cause instanceof Error ? cause.message : t("auth.failed"));
               }
             }}
           >
             <span className="rounded-[3px] bg-white p-[3px]">
               <GoogleMark />
             </span>
-            {busy ? "Opening Google…" : "Continue with Google"}
+            {busy ? t("auth.googleBusy") : t("auth.google")}
           </Button>
         </div>
 

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Button, Card } from "@/components/ui/primitives";
 import { dismissLocalArchive, readLocalArchive, type LocalArchive } from "@/lib/local-archive";
+import { useT } from "@/lib/locale-context";
 import { storage } from "@/lib/storage";
 
 /**
@@ -12,6 +13,7 @@ import { storage } from "@/lib/storage";
  * happens on sign-in.
  */
 export function LocalArchiveNotice({ onImported }: { onImported: () => void }) {
+  const t = useT();
   const [archive, setArchive] = useState<LocalArchive | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,20 +24,12 @@ export function LocalArchiveNotice({ onImported }: { onImported: () => void }) {
 
   return (
     <Card className="mb-5 p-5">
-      <h2 className="text-[13.5px] font-semibold tracking-[-0.01em] text-ink">
-        Days recorded in this browser
-      </h2>
+      <h2 className="text-[13.5px] font-semibold tracking-[-0.01em] text-ink">{t("archive.title")}</h2>
       <p className="mt-2 max-w-[64ch] text-[13.5px] leading-relaxed text-muted">
-        This browser still holds{" "}
-        <span className="font-medium tabular-nums text-ink">
-          {archive.blocks} {archive.blocks === 1 ? "block" : "blocks"}
-        </span>{" "}
-        across{" "}
-        <span className="font-medium tabular-nums text-ink">
-          {archive.days} {archive.days === 1 ? "day" : "days"}
-        </span>{" "}
-        from before you signed in. Move them into your account and they follow you to your phone.
-        Anything already in the account is replaced.
+        {t("archive.body", {
+          blocks: t("settings.importBlocks", { count: archive.blocks }),
+          days: t("settings.importDays", { count: archive.days }),
+        })}
       </p>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -53,11 +47,11 @@ export function LocalArchiveNotice({ onImported }: { onImported: () => void }) {
               onImported();
             } catch (cause) {
               setBusy(false);
-              setError(cause instanceof Error ? cause.message : "The upload did not finish.");
+              setError(cause instanceof Error ? cause.message : t("archive.failed"));
             }
           }}
         >
-          {busy ? "Moving…" : "Move them in"}
+          {busy ? t("archive.moving") : t("archive.move")}
         </Button>
         <Button
           variant="ghost"
@@ -68,7 +62,7 @@ export function LocalArchiveNotice({ onImported }: { onImported: () => void }) {
             setArchive(null);
           }}
         >
-          Not now
+          {t("archive.notNow")}
         </Button>
       </div>
 
@@ -78,9 +72,7 @@ export function LocalArchiveNotice({ onImported }: { onImported: () => void }) {
         </p>
       ) : null}
 
-      <p className="mt-3 text-[12px] text-faint">
-        Dismissing leaves the browser copy untouched, so nothing is lost either way.
-      </p>
+      <p className="mt-3 text-[12px] text-faint">{t("archive.footnote")}</p>
     </Card>
   );
 }

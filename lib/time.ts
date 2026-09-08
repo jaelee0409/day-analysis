@@ -1,5 +1,15 @@
 import { addDays, format, isValid, parse, startOfWeek, subDays } from "date-fns";
+import { ko } from "date-fns/locale";
+import type { Locale } from "@/lib/i18n";
 import type { Interval, TimeBlock } from "@/types/time";
+
+/**
+ * Formatting is the one place the two languages genuinely diverge in code:
+ * "3h 25m" and "3시간 25분" put their units in different places, and Korean
+ * dates lead with the month. Everything defaults to English so the pure
+ * analysis functions can call these without carrying a locale around.
+ */
+const DATE_FNS = { en: undefined, ko } as const;
 
 export const MINUTES_PER_DAY = 1440;
 
@@ -25,19 +35,25 @@ export function toClock(minutes: number): string {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
-/** 205 -> "3h 25m". Zero reads as "0m", whole hours drop the minutes. */
-export function formatDuration(minutes: number): string {
+/** 205 -> "3h 25m" or "3시간 25분". Whole hours drop the minutes. */
+export function formatDuration(minutes: number, locale: Locale = "en"): string {
   const total = Math.max(0, Math.round(minutes));
   const h = Math.floor(total / 60);
   const m = total % 60;
+  if (locale === "ko") {
+    if (h === 0) return `${m}분`;
+    if (m === 0) return `${h}시간`;
+    return `${h}시간 ${m}분`;
+  }
   if (h === 0) return `${m}m`;
   if (m === 0) return `${h}h`;
   return `${h}h ${String(m).padStart(2, "0")}m`;
 }
 
 /** Compact form for tight spots in charts: "3h 25m" -> "3.4h". */
-export function formatHours(minutes: number): string {
-  return `${(minutes / 60).toFixed(minutes % 60 === 0 ? 0 : 1)}h`;
+export function formatHours(minutes: number, locale: Locale = "en"): string {
+  const value = (minutes / 60).toFixed(minutes % 60 === 0 ? 0 : 1);
+  return locale === "ko" ? `${value}시간` : `${value}h`;
 }
 
 /* ------------------------------------------------------------------ *
@@ -137,19 +153,24 @@ export function offsetToClock(offset: number, dayStart: number): string {
  * Calendar helpers
  * ------------------------------------------------------------------ */
 
-/** Human date for a window key: "Monday, September 8". */
-export function formatDayLong(key: string): string {
-  return format(parseDateKey(key), "EEEE, MMMM d");
+/** Human date for a window key: "Monday, September 8" / "9월 8일 월요일". */
+export function formatDayLong(key: string, locale: Locale = "en"): string {
+  const date = parseDateKey(key);
+  return locale === "ko"
+    ? format(date, "M월 d일 EEEE", { locale: DATE_FNS.ko })
+    : format(date, "EEEE, MMMM d");
 }
 
-/** "September 8" */
-export function formatDayShort(key: string): string {
-  return format(parseDateKey(key), "MMMM d");
+/** "September 8" / "9월 8일" */
+export function formatDayShort(key: string, locale: Locale = "en"): string {
+  const date = parseDateKey(key);
+  return locale === "ko" ? format(date, "M월 d일", { locale: DATE_FNS.ko }) : format(date, "MMMM d");
 }
 
-/** "Mon" */
-export function formatWeekday(key: string): string {
-  return format(parseDateKey(key), "EEE");
+/** "Mon" / "월" */
+export function formatWeekday(key: string, locale: Locale = "en"): string {
+  const date = parseDateKey(key);
+  return locale === "ko" ? format(date, "EEE", { locale: DATE_FNS.ko }) : format(date, "EEE");
 }
 
 /** The seven window keys of the week containing `key`, Monday first. */

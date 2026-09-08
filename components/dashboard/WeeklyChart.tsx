@@ -2,6 +2,7 @@
 
 import { Card, PanelTitle } from "@/components/ui/primitives";
 import type { DayTotals } from "@/lib/analytics";
+import { useLocale } from "@/lib/locale-context";
 import { formatDuration, formatWeekday } from "@/lib/time";
 
 /**
@@ -12,18 +13,21 @@ import { formatDuration, formatWeekday } from "@/lib/time";
 export function WeeklyChart({
   days,
   todayKey,
-  title = "Focused work this week",
+  title,
 }: {
   days: DayTotals[];
   todayKey?: string;
-  title?: string;
+  title: string;
 }) {
+  const { locale, t } = useLocale();
   const peak = Math.max(60, ...days.map((d) => d.tracked));
   const focusedTotal = days.reduce((sum, day) => sum + day.productive, 0);
 
   return (
     <Card className="p-5">
-      <PanelTitle aside={`${formatDuration(focusedTotal)} in total`}>{title}</PanelTitle>
+      <PanelTitle aside={t("chart.inTotal", { duration: formatDuration(focusedTotal, locale) })}>
+        {title}
+      </PanelTitle>
 
       <div className="mt-4 space-y-2.5">
         {days.map((day) => {
@@ -34,7 +38,7 @@ export function WeeklyChart({
               <span
                 className={`text-[12px] ${isToday ? "font-semibold text-ink" : "text-muted"}`}
               >
-                {formatWeekday(day.date)}
+                {formatWeekday(day.date, locale)}
               </span>
               <div className="flex h-[14px] overflow-hidden rounded-[3px] bg-[#f1f3f3]">
                 <div
@@ -47,16 +51,14 @@ export function WeeklyChart({
                 />
               </div>
               <span className="text-right text-[12.5px] tabular-nums text-ink-soft">
-                {day.productive > 0 ? formatDuration(day.productive) : "—"}
+                {day.productive > 0 ? formatDuration(day.productive, locale) : "—"}
               </span>
             </div>
           );
         })}
       </div>
 
-      <p className="mt-4 border-t border-hairline pt-3 text-[12px] text-faint">
-        Solid marks focused work. The lighter run is everything else you recorded.
-      </p>
+      <p className="mt-4 border-t border-hairline pt-3 text-[12px] text-faint">{t("chart.legend")}</p>
     </Card>
   );
 }

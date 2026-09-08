@@ -3,6 +3,8 @@
 import { useRef, useState } from "react";
 import { CategoryIcon } from "@/components/ui/CategoryIcon";
 import { useAuth } from "@/lib/auth-context";
+import { LOCALES, LOCALE_LABEL, type MessageKey } from "@/lib/i18n";
+import { useLocale } from "@/lib/locale-context";
 import { Button, Card, PanelTitle, Segmented } from "@/components/ui/primitives";
 import { CATEGORIES } from "@/lib/categories";
 import { useSettings } from "@/lib/settings-context";
@@ -11,15 +13,12 @@ import { storage } from "@/lib/storage";
 import { formatDuration, toClock, toMinutes } from "@/lib/time";
 import type { ActivityCategory, Interval } from "@/types/time";
 
-const INTERVALS: { value: Interval; label: string }[] = [
-  { value: 15, label: "15 min" },
-  { value: 30, label: "30 min" },
-  { value: 60, label: "60 min" },
-];
+const INTERVALS: Interval[] = [15, 30, 60];
 
 export default function SettingsPage() {
   const { settings, updateSettings, ready } = useSettings();
   const { session, signOut } = useAuth();
+  const { locale, setLocale, t } = useLocale();
   const [confirmingReset, setConfirmingReset] = useState(false);
   const [pending, setPending] = useState<{ json: string; summary: ImportSummary } | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
@@ -46,32 +45,47 @@ export default function SettingsPage() {
   return (
     <div className="max-w-[720px]">
       <header className="mb-7">
-        <p className="text-[13px] text-muted">Settings</p>
-        <h1 className="ask mt-1.5 text-[clamp(28px,4vw,38px)] text-ink">How should the day be measured?</h1>
+        <p className="text-[13px] text-muted">{t("settings.label")}</p>
+        <h1 className="ask mt-1.5 text-[clamp(28px,4vw,38px)] text-ink">{t("settings.question")}</h1>
       </header>
 
       <div className="grid gap-5">
         <Card className="p-5">
-          <PanelTitle aside={`${1440 / settings.interval} slots a day`}>Time interval</PanelTitle>
+          <PanelTitle>{t("settings.language")}</PanelTitle>
           <p className="mt-2 max-w-[52ch] text-[13.5px] leading-relaxed text-muted">
-            The resolution of the timeline grid. Finer grids record more precisely; coarser grids are quicker
-            to fill in.
+            {t("settings.languageBody")}
           </p>
           <div className="mt-4">
             <Segmented
-              options={INTERVALS}
-              value={settings.interval}
-              onChange={(interval) => void updateSettings({ interval })}
-              label="Time interval"
+              options={LOCALES.map((value) => ({ value, label: LOCALE_LABEL[value] }))}
+              value={locale}
+              onChange={setLocale}
+              label={t("settings.language")}
             />
           </div>
         </Card>
 
         <Card className="p-5">
-          <PanelTitle aside={`runs to ${dayEnd}`}>Day starts at</PanelTitle>
+          <PanelTitle aside={t("settings.slotsADay", { count: 1440 / settings.interval })}>
+            {t("settings.interval")}
+          </PanelTitle>
           <p className="mt-2 max-w-[52ch] text-[13.5px] leading-relaxed text-muted">
-            Where your timeline begins. Set it to when you usually wake, and a late night stays attached to
-            the day it belongs to instead of splitting across midnight.
+            {t("settings.intervalBody")}
+          </p>
+          <div className="mt-4">
+            <Segmented
+              options={INTERVALS.map((value) => ({ value, label: t("settings.minutes", { count: value }) }))}
+              value={settings.interval}
+              onChange={(interval) => void updateSettings({ interval })}
+              label={t("settings.interval")}
+            />
+          </div>
+        </Card>
+
+        <Card className="p-5">
+          <PanelTitle aside={t("settings.runsTo", { clock: dayEnd })}>{t("settings.dayStart")}</PanelTitle>
+          <p className="mt-2 max-w-[52ch] text-[13.5px] leading-relaxed text-muted">
+            {t("settings.dayStartBody")}
           </p>
           <div className="mt-4 flex items-center gap-3">
             <input
@@ -82,18 +96,26 @@ export default function SettingsPage() {
               className="h-10 w-[130px] rounded-lg border border-line bg-surface px-3 text-[14px] tabular-nums text-ink focus:border-ink focus:outline-none"
             />
             <span className="text-[13px] text-faint">
-              {settings.dayStartsAt} to {dayEnd}, {formatDuration(1440)} in all
+              {t("settings.dayRange", {
+                start: settings.dayStartsAt,
+                end: dayEnd,
+                total: formatDuration(1440, locale),
+              })}
             </span>
           </div>
         </Card>
 
         <Card className="p-5">
-          <PanelTitle aside={`${settings.enabledCategories.length} of ${CATEGORIES.length} on`}>
-            Categories
+          <PanelTitle
+            aside={t("settings.categoriesOn", {
+              on: settings.enabledCategories.length,
+              total: CATEGORIES.length,
+            })}
+          >
+            {t("settings.categories")}
           </PanelTitle>
           <p className="mt-2 max-w-[52ch] text-[13.5px] leading-relaxed text-muted">
-            Turn off what you never use. Fewer choices in the recorder means a faster entry. Time already
-            recorded under a category you switch off is kept and still counted.
+            {t("settings.categoriesBody")}
           </p>
           <ul className="mt-4 divide-y divide-hairline">
             {CATEGORIES.map((meta) => {
@@ -106,12 +128,18 @@ export default function SettingsPage() {
                   >
                     <CategoryIcon id={meta.id} size={16} />
                   </span>
-                  <span className={`text-[13.5px] ${enabled ? "text-ink" : "text-faint"}`}>{meta.label}</span>
+                  <span className={`text-[13.5px] ${enabled ? "text-ink" : "text-faint"}`}>
+                    {t(`category.${meta.id}.label` as MessageKey)}
+                  </span>
                   {meta.productive ? (
-                    <span className="text-[11.5px] text-faint">counts as focused work</span>
+                    <span className="text-[11.5px] text-faint">{t("settings.countsAsFocused")}</span>
                   ) : null}
                   <label className="ml-auto flex cursor-pointer items-center gap-2">
-                    <span className="sr-only">Enable {meta.label}</span>
+                    <span className="sr-only">
+                      {t("settings.enableCategory", {
+                        label: t(`category.${meta.id}.label` as MessageKey),
+                      })}
+                    </span>
                     <input
                       type="checkbox"
                       checked={enabled}
@@ -127,23 +155,21 @@ export default function SettingsPage() {
         </Card>
 
         <Card className="p-5">
-          <PanelTitle aside={session?.user.email ?? undefined}>Account</PanelTitle>
+          <PanelTitle aside={session?.user.email ?? undefined}>{t("settings.account")}</PanelTitle>
           <p className="mt-2 max-w-[52ch] text-[13.5px] leading-relaxed text-muted">
-            Your days live in your account, so this browser and your phone show the same record. Nobody
-            else can read it.
+            {t("settings.accountBody")}
           </p>
           <div className="mt-4">
             <Button variant="secondary" size="sm" onClick={() => void signOut()}>
-              Sign out
+              {t("settings.signOut")}
             </Button>
           </div>
         </Card>
 
         <Card className="p-5">
-          <PanelTitle>Your data</PanelTitle>
+          <PanelTitle>{t("settings.data")}</PanelTitle>
           <p className="mt-2 max-w-[52ch] text-[13.5px] leading-relaxed text-muted">
-            Export a copy whenever you want one of your own. Importing replaces everything in your
-            account, so it restores a backup rather than merging one in.
+            {t("settings.dataBody")}
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <Button
@@ -159,11 +185,11 @@ export default function SettingsPage() {
                 URL.revokeObjectURL(url);
               }}
             >
-              Export JSON
+              {t("settings.export")}
             </Button>
 
             <Button variant="secondary" size="sm" onClick={() => fileRef.current?.click()}>
-              Import JSON
+              {t("settings.import")}
             </Button>
             <input
               ref={fileRef}
@@ -180,7 +206,7 @@ export default function SettingsPage() {
                   const json = await file.text();
                   setPending({ json, summary: readExport(json).summary });
                 } catch (error) {
-                  setImportError(error instanceof Error ? error.message : "That file could not be read.");
+                  setImportError(error instanceof Error ? error.message : t("settings.unreadable"));
                 }
               }}
             />
@@ -196,15 +222,15 @@ export default function SettingsPage() {
                     window.location.reload();
                   }}
                 >
-                  Delete everything
+                  {t("settings.deleteEverything")}
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => setConfirmingReset(false)}>
-                  Keep it
+                  {t("settings.keepIt")}
                 </Button>
               </>
             ) : (
               <Button variant="ghost" size="sm" onClick={() => setConfirmingReset(true)}>
-                Clear all data
+                {t("settings.clear")}
               </Button>
             )}
           </div>

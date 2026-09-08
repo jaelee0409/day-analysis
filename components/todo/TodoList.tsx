@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Card, PanelTitle } from "@/components/ui/primitives";
+import { useT } from "@/lib/locale-context";
 import { storage } from "@/lib/storage";
 import type { Todo } from "@/types/time";
 
@@ -12,6 +13,7 @@ import type { Todo } from "@/types/time";
  * the product is not.
  */
 export function TodoList() {
+  const t = useT();
   const [todos, setTodos] = useState<Todo[]>([]);
   const [draft, setDraft] = useState("");
 
@@ -36,8 +38,10 @@ export function TodoList() {
 
   return (
     <Card className="p-5">
-      <PanelTitle aside={todos.length > 0 ? (open > 0 ? `${open} left` : "all done") : undefined}>
-        To do
+      <PanelTitle
+        aside={todos.length > 0 ? (open > 0 ? t("todo.left", { count: open }) : t("todo.allDone")) : undefined}
+      >
+        {t("todo.title")}
       </PanelTitle>
 
       <input
@@ -49,8 +53,8 @@ export function TodoList() {
             void add();
           }
         }}
-        placeholder="Something to remember"
-        aria-label="Add a reminder"
+        placeholder={t("todo.placeholder")}
+        aria-label={t("todo.add")}
         className="mt-3 h-9 w-full rounded-lg border border-line bg-surface px-3 text-[13.5px] text-ink placeholder:text-faint focus:border-ink focus:outline-none"
       />
 
@@ -65,7 +69,7 @@ export function TodoList() {
                   await reload();
                 }}
                 aria-pressed={todo.done}
-                aria-label={todo.done ? `Mark ${todo.text} as not done` : `Mark ${todo.text} as done`}
+                aria-label={t(todo.done ? "todo.markNotDone" : "todo.markDone", { text: todo.text })}
                 className={`h-[13px] w-[13px] shrink-0 rounded-full border transition-colors ${
                   todo.done ? "border-ink bg-ink" : "border-[#c3c8c8] hover:border-ink"
                 }`}
@@ -84,7 +88,7 @@ export function TodoList() {
                   await reload();
                 }}
                 className="shrink-0 rounded p-1 text-faint opacity-0 transition-opacity hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
-                aria-label={`Delete ${todo.text}`}
+                aria-label={t("todo.deleteItem", { text: todo.text })}
               >
                 <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
                   <path d="m2.5 2.5 7 7m0-7-7 7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
@@ -104,7 +108,7 @@ export function TodoList() {
           }}
           className="mt-3 text-[12.5px] text-muted underline underline-offset-2 hover:text-ink"
         >
-          Clear {done} done
+          {t("todo.clearDone", { count: done })}
         </button>
       ) : null}
     </Card>

@@ -5,6 +5,7 @@ import { ActivityModal, type ModalTarget } from "@/components/timeline/ActivityM
 import { COLUMNS, COLUMN_SPAN, GUTTER, pixelsPerMinute } from "@/components/timeline/metrics";
 import { TimeBlockItem } from "@/components/timeline/TimeBlockItem";
 import { TimeGrid } from "@/components/timeline/TimeGrid";
+import { useLocale } from "@/lib/locale-context";
 import { MINUTES_PER_DAY, blockRange, buildSlots, formatDuration, offsetToClock, snap } from "@/lib/time";
 import type { ActivityCategory, Interval, NewTimeBlock, TimeBlock } from "@/types/time";
 
@@ -50,6 +51,7 @@ export function Timeline({
   openAt,
   focusOnLoad = false,
 }: TimelineProps) {
+  const { locale, t } = useLocale();
   const trackRefs = useRef<(HTMLDivElement | null)[]>([]);
   const dragOriginRef = useRef<{ column: number; offset: number } | null>(null);
   const anchoredRef = useRef<string>("");
@@ -262,8 +264,8 @@ export function Timeline({
                   </span>
                   <span className="text-[11.5px] tabular-nums text-faint">
                     {trackedPerColumn[column] > 0
-                      ? `${formatDuration(trackedPerColumn[column])} tracked`
-                      : "nothing yet"}
+                      ? t("timeline.trackedIn", { duration: formatDuration(trackedPerColumn[column], locale) })
+                      : t("timeline.nothingYet")}
                   </span>
                 </div>
 
@@ -307,7 +309,7 @@ export function Timeline({
                           <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[11.5px] font-medium tabular-nums text-ink-soft">
                             {offsetToClock(bandHere.start, dayStart)} – {offsetToClock(bandHere.end, dayStart)}
                             <span className="ml-2 text-faint">
-                              {formatDuration(bandHere.end - bandHere.start)}
+                              {formatDuration(bandHere.end - bandHere.start, locale)}
                             </span>
                           </span>
                         ) : null}

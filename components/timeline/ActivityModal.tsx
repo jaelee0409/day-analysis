@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { CategoryIcon } from "@/components/ui/CategoryIcon";
 import { Button, Modal } from "@/components/ui/primitives";
 import { enabledCategories } from "@/lib/categories";
+import type { MessageKey } from "@/lib/i18n";
+import { useLocale } from "@/lib/locale-context";
 import { MINUTES_PER_DAY, blockRange, formatDuration, offsetFromDayStart, offsetToClock, toMinutes } from "@/lib/time";
 import type { ActivityCategory, Interval, NewTimeBlock, TimeBlock } from "@/types/time";
 
@@ -34,6 +36,7 @@ export function ActivityModal({
   onUpdate: (id: string, patch: Partial<NewTimeBlock>) => Promise<void> | void;
   onDelete: (id: string) => Promise<void> | void;
 }) {
+  const { locale, t } = useLocale();
   const options = useMemo(() => enabledCategories(categories), [categories]);
 
   const [category, setCategory] = useState<ActivityCategory>(options[0]?.id ?? "other");
@@ -106,16 +109,16 @@ export function ActivityModal({
         <div onKeyDown={onKeyDown}>
           <div className="flex items-baseline justify-between gap-4 border-b border-hairline px-5 py-4">
             <h2 id="activity-modal-title" className="text-[15px] font-semibold tracking-[-0.01em]">
-              {target.mode === "create" ? "Record time" : "Edit activity"}
+              {t(target.mode === "create" ? "recorder.create" : "recorder.edit")}
             </h2>
             <span className="text-[13px] tabular-nums text-muted">
-              {valid ? formatDuration(range.duration) : "Set an end time"}
+              {valid ? formatDuration(range.duration, locale) : t("recorder.needsEnd")}
             </span>
           </div>
 
           <div className="space-y-5 px-5 py-5">
             <fieldset>
-              <legend className="mb-2.5 text-[12.5px] text-muted">Category</legend>
+              <legend className="mb-2.5 text-[12.5px] text-muted">{t("recorder.category")}</legend>
               <div className="grid grid-cols-4 gap-1.5">
                 {options.map((option, index) => {
                   const active = option.id === category;
@@ -126,7 +129,14 @@ export function ActivityModal({
                       data-autofocus={index === 0 ? "" : undefined}
                       onClick={() => setCategory(option.id)}
                       aria-pressed={active}
-                      title={index < 10 ? `${option.label} (press ${index === 9 ? 0 : index + 1})` : option.label}
+                      title={
+                        index < 10
+                          ? t("recorder.pressHint", {
+                              label: t(`category.${option.id}.label` as MessageKey),
+                              key: index === 9 ? 0 : index + 1,
+                            })
+                          : t(`category.${option.id}.label` as MessageKey)
+                      }
                       className={`flex h-[58px] flex-col items-center justify-center gap-1 rounded-lg border px-1 transition-colors ${
                         active
                           ? "border-transparent text-white"
@@ -136,7 +146,7 @@ export function ActivityModal({
                     >
                       <CategoryIcon id={option.id} size={16} />
                       <span className="w-full text-center text-[10.5px] leading-[1.15] hyphens-auto">
-                        {option.label}
+                        {t(`category.${option.id}.label` as MessageKey)}
                       </span>
                     </button>
                   );
@@ -145,18 +155,18 @@ export function ActivityModal({
             </fieldset>
 
             <label className="block">
-              <span className="mb-1.5 block text-[12.5px] text-muted">Activity</span>
+              <span className="mb-1.5 block text-[12.5px] text-muted">{t("recorder.activity")}</span>
               <input
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
-                placeholder="Optional"
+                placeholder={t("recorder.optional")}
                 className="h-10 w-full rounded-lg border border-line bg-surface px-3 text-[14px] text-ink placeholder:text-faint focus:border-ink focus:outline-none"
               />
             </label>
 
             <div className="grid grid-cols-2 gap-3">
               <label className="block">
-                <span className="mb-1.5 block text-[12.5px] text-muted">Start</span>
+                <span className="mb-1.5 block text-[12.5px] text-muted">{t("recorder.start")}</span>
                 <input
                   type="time"
                   step={interval * 60}
@@ -166,7 +176,7 @@ export function ActivityModal({
                 />
               </label>
               <label className="block">
-                <span className="mb-1.5 block text-[12.5px] text-muted">End</span>
+                <span className="mb-1.5 block text-[12.5px] text-muted">{t("recorder.end")}</span>
                 <input
                   type="time"
                   step={interval * 60}
@@ -189,7 +199,7 @@ export function ActivityModal({
                       : "border-line text-muted hover:border-[#cfd4d4] hover:text-ink"
                   }`}
                 >
-                  {formatDuration(minutes)}
+                  {formatDuration(minutes, locale)}
                 </button>
               ))}
             </div>
@@ -205,17 +215,17 @@ export function ActivityModal({
                   onClose();
                 }}
               >
-                Delete
+                {t("common.delete")}
               </Button>
             ) : (
-              <span className="text-[12px] text-faint">Numbers pick a category. Enter saves.</span>
+              <span className="text-[12px] text-faint">{t("recorder.hint")}</span>
             )}
             <div className="ml-auto flex items-center gap-2">
               <Button variant="ghost" size="sm" onClick={onClose}>
-                Cancel
+                {t("common.cancel")}
               </Button>
               <Button variant="primary" size="sm" disabled={!valid} onClick={save}>
-                {target.mode === "create" ? "Save" : "Save changes"}
+                {t(target.mode === "create" ? "common.save" : "common.saveChanges")}
               </Button>
             </div>
           </div>

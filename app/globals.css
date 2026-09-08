@@ -25,8 +25,12 @@
   --color-track-early: #fbfcfe;
   --color-track-late: #faf7f3;
 
-  --font-sans: var(--font-instrument-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-serif: var(--font-instrument-serif), ui-serif, Georgia, "Times New Roman", serif;
+  --font-sans: var(--font-instrument-sans), var(--font-korean), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", sans-serif;
+  /* No Korean serif here on purpose: Instrument Serif has no Hangul, so the
+     question falls through to the Korean sans and reads as one deliberate
+     voice rather than a mismatched pairing. */
+  --font-serif: var(--font-instrument-serif), var(--font-korean), ui-serif, Georgia, serif;
 
   --radius-card: 14px;
 
@@ -77,6 +81,17 @@
     font-weight: 400;
     letter-spacing: -0.01em;
     line-height: 1.1;
+  }
+
+  /* Instrument Serif has no Hangul, so a Korean question would be set half in
+     a serif (its punctuation) and half in a sans — one line, two faces. Korean
+     editorial type marks emphasis by weight rather than by serif, so the whole
+     line moves to the Korean face and gains weight instead. */
+  :lang(ko) .ask {
+    font-family: var(--font-korean), sans-serif;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+    line-height: 1.25;
   }
 
   .card {
