@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Instrument_Sans, Instrument_Serif } from "next/font/google";
+import { SignInGate } from "@/components/auth/SignInGate";
 import { AppShell } from "@/components/ui/AppShell";
+import { AuthProvider } from "@/lib/auth-context";
 import { SettingsProvider } from "@/lib/settings-context";
 import "./globals.css";
 
@@ -30,9 +32,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${sans.variable} ${serif.variable}`}>
       <body>
-        <SettingsProvider>
-          <AppShell>{children}</AppShell>
-        </SettingsProvider>
+        <AuthProvider>
+          <SignInGate>
+            <SettingsProvider>
+              <AppShell>{children}</AppShell>
+            </SettingsProvider>
+          </SignInGate>
+        </AuthProvider>
       </body>
     </html>
   );

@@ -10,6 +10,7 @@
     "design:check": "node scripts/design-check.mjs"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.116.0",
     "date-fns": "4.1.0",
     "next": "15.5.25",
     "react": "19.2.8",

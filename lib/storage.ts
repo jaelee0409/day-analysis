@@ -1,14 +1,19 @@
 /**
- * The only module in the app that touches localStorage.
+ * The only module that knows where the data lives.
  *
- * Every function is async and returns plain domain objects, so the browser
- * store can be swapped for a fetch against a Next.js API route backed by
- * Postgres without a single component changing. Nothing above this layer
- * may read or write the browser store directly.
+ * It now talks to Supabase rather than localStorage, but every signature is
+ * the one the app already used, so no page, hook, or analysis function changed
+ * when the store moved. Row Level Security means there is no API route in
+ * between: the browser carries the user's JWT and Postgres refuses anyone
+ * else's rows.
+ *
+ * The old browser store still exists, read-only, in `lib/local-archive.ts` —
+ * it is what an account is seeded from the first time someone signs in.
  */
 
 import { ALL_CATEGORY_IDS } from "@/lib/categories";
-import { blockRange, offsetToClock, toMinutes } from "@/lib/time";
+import { supabase } from "@/lib/supabase";
+import { blockRange, offsetToClock } from "@/lib/time";
 import type {
   ActivityCategory,
   ExperimentSession,
@@ -18,14 +23,6 @@ import type {
   Todo,
 } from "@/types/time";
 
-const KEYS = {
-  blocks: "day-analysis.blocks.v1",
-  settings: "day-analysis.settings.v1",
-  experiments: "day-analysis.experiments.v1",
-  todos: "day-analysis.todos.v1",
-  schema: "day-analysis.schema",
-} as const;
-
 export const DEFAULT_SETTINGS: Settings = {
   interval: 15,
   dayStartsAt: "00:00",
@@ -33,28 +30,51 @@ export const DEFAULT_SETTINGS: Settings = {
 };
 
 /* ------------------------------------------------------------------ *
- * Raw access
+ * Rows in, domain objects out
  * ------------------------------------------------------------------ */
 
-function read<T>(key: string, fallback: T): T {
-  if (typeof window === "undefined") return fallback;
-  try {
-    const raw = window.localStorage.getItem(key);
-    if (!raw) return fallback;
-    return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
-  }
+type BlockRow = {
+  id: string;
+  date: string;
+  title: string | null;
+  category: string;
+  start_time: string;
+  end_time: string;
+  interval: number;
+  created_at: string;
+  updated_at: string;
+};
+
+function toBlock(row: BlockRow): TimeBlock {
+  return {
+    id: row.id,
+    date: row.date,
+    title: row.title ?? undefined,
+    category: row.category as ActivityCategory,
+    startTime: row.start_time,
+    endTime: row.end_time,
+    interval: row.interval as TimeBlock["interval"],
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
 }
 
-function write<T>(key: string, value: T): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // Quota or private-mode failures are not worth crashing a save over.
-  }
+function toBlockRow(block: TimeBlock, userId: string) {
+  return {
+    id: block.id,
+    user_id: userId,
+    date: block.date,
+    title: block.title ?? null,
+    category: block.category,
+    start_time: block.startTime,
+    end_time: block.endTime,
+    interval: block.interval,
+    created_at: block.createdAt,
+    updated_at: block.updatedAt,
+  };
 }
+
+const BLOCK_COLUMNS = "id,date,title,category,start_time,end_time,interval,created_at,updated_at";
 
 function uid(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
@@ -65,112 +85,32 @@ function now(): string {
   return new Date().toISOString();
 }
 
-/* ------------------------------------------------------------------ *
- * Schema migration
- *
- * Category ids live in recorded data, so renaming one has to bring the
- * existing blocks with it. Migration runs once per browser, in place, before
- * the first read.
- * ------------------------------------------------------------------ */
-
-type Migration = {
-  version: number;
-  /** Old category id -> current id. */
-  renames?: Record<string, ActivityCategory>;
-  /** Categories introduced here, switched on for people who already had settings. */
-  added?: ActivityCategory[];
-};
-
-/** Applied in order, and only the ones newer than what the browser holds. */
-const MIGRATIONS: Migration[] = [
-  { version: 2, renames: { entertainment: "leisure" }, added: ["hygiene"] },
-  { version: 3, renames: { travel: "transit" } },
-  { version: 4, added: ["chores"] },
-];
-
-const SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version;
-
-let migrationChecked = false;
-
-function ensureMigrated(): void {
-  if (migrationChecked || typeof window === "undefined") return;
-  migrationChecked = true;
-
-  const from = read<number>(KEYS.schema, 1);
-  const pending = MIGRATIONS.filter((m) => m.version > from);
-  if (pending.length === 0) return;
-
-  const renames: Record<string, ActivityCategory> = {};
-  const added: ActivityCategory[] = [];
-  for (const step of pending) {
-    Object.assign(renames, step.renames ?? {});
-    added.push(...(step.added ?? []));
-  }
-
-  const rename = (id: string): ActivityCategory => renames[id] ?? (id as ActivityCategory);
-
-  const blocks = read<TimeBlock[]>(KEYS.blocks, []);
-  if (blocks.some((b) => b.category in renames)) {
-    write(
-      KEYS.blocks,
-      blocks.map((b) => ({ ...b, category: rename(b.category) })),
-    );
-  }
-
-  // Carry renames through the stored list, and opt the person into anything
-  // new rather than hiding a category they never chose to switch off.
-  const stored = read<Partial<Settings>>(KEYS.settings, {});
-  if (Array.isArray(stored.enabledCategories)) {
-    const carried = stored.enabledCategories.map(rename);
-    write(KEYS.settings, {
-      ...stored,
-      enabledCategories: [...carried, ...added.filter((id) => !carried.includes(id))],
-    });
-  }
-
-  write(KEYS.schema, SCHEMA_VERSION);
+/** The signed-in user, read from the cached session rather than the network. */
+async function currentUserId(): Promise<string> {
+  const { data } = await supabase().auth.getSession();
+  const id = data.session?.user.id;
+  if (!id) throw new Error("Not signed in.");
+  return id;
 }
 
-/* ------------------------------------------------------------------ *
- * Settings
- * ------------------------------------------------------------------ */
-
-function readSettings(): Settings {
-  const stored = read<Partial<Settings>>(KEYS.settings, {});
-  const enabled =
-    Array.isArray(stored.enabledCategories) && stored.enabledCategories.length > 0
-      ? stored.enabledCategories.filter((c) => ALL_CATEGORY_IDS.includes(c))
-      : DEFAULT_SETTINGS.enabledCategories;
-  return {
-    interval: stored.interval === 30 || stored.interval === 60 ? stored.interval : 15,
-    dayStartsAt: typeof stored.dayStartsAt === "string" ? stored.dayStartsAt : DEFAULT_SETTINGS.dayStartsAt,
-    enabledCategories: enabled,
-  };
+function fail(context: string, error: { message: string } | null): void {
+  if (error) throw new Error(`${context}: ${error.message}`);
 }
 
 /* ------------------------------------------------------------------ *
  * Overlap resolution
  *
  * Recording time has to be faster than ignoring it, so a new block simply
- * wins: anything it covers is trimmed, split, or dropped rather than
- * bounced back to the user as a validation error.
+ * wins: anything it covers is trimmed, split, or dropped rather than bounced
+ * back as a validation error.
+ *
+ * The result is a change set rather than a rewritten world, because saving one
+ * block must not rewrite every row the account owns.
  * ------------------------------------------------------------------ */
 
-/**
- * What a new block does to the blocks already there, expressed as a change set
- * rather than a rewritten world.
- *
- * The browser store could get away with handing back the whole array, because
- * writing it costs the same either way. A database cannot: saving one block
- * would rewrite every row you own. Naming the three specific effects keeps the
- * localStorage path honest and lets the Postgres one issue three statements.
- */
 export type BlockDiff = {
-  /** Ids of blocks the new one swallowed whole. */
   deleted: string[];
-  /** Blocks trimmed at one end. */
   updated: TimeBlock[];
-  /** Tails created when the new block landed inside an existing one. */
   inserted: TimeBlock[];
 };
 
@@ -214,14 +154,22 @@ export function resolveOverlaps(existing: TimeBlock[], incoming: TimeBlock, dayS
   return diff;
 }
 
-/** Replays a diff over an in-memory array. The database replays it as SQL. */
-function applyDiff(blocks: TimeBlock[], diff: BlockDiff): TimeBlock[] {
-  const removed = new Set(diff.deleted);
-  const updates = new Map(diff.updated.map((b) => [b.id, b]));
-  return [
-    ...blocks.filter((b) => !removed.has(b.id)).map((b) => updates.get(b.id) ?? b),
-    ...diff.inserted,
-  ];
+/** Sends a change set as three statements at most, rather than a table rewrite. */
+async function applyDiff(diff: BlockDiff, userId: string): Promise<void> {
+  const client = supabase();
+
+  if (diff.deleted.length > 0) {
+    const { error } = await client.from("blocks").delete().in("id", diff.deleted);
+    fail("Could not remove the blocks this one covered", error);
+  }
+  if (diff.updated.length > 0) {
+    const { error } = await client.from("blocks").upsert(diff.updated.map((b) => toBlockRow(b, userId)));
+    fail("Could not trim the blocks this one overlapped", error);
+  }
+  if (diff.inserted.length > 0) {
+    const { error } = await client.from("blocks").insert(diff.inserted.map((b) => toBlockRow(b, userId)));
+    fail("Could not split the block this one landed inside", error);
+  }
 }
 
 function sortBlocks(blocks: TimeBlock[], dayStart: number): TimeBlock[] {
@@ -232,267 +180,289 @@ function sortBlocks(blocks: TimeBlock[], dayStart: number): TimeBlock[] {
 }
 
 /* ------------------------------------------------------------------ *
- * Import
- *
- * A restore replaces rather than merges. Two datasets recorded on two devices
- * cannot be reconciled honestly — the same afternoon may hold different blocks
- * in each — so the file wins outright and the UI says so before it happens.
- * ------------------------------------------------------------------ */
-
-export type ImportSummary = {
-  blocks: number;
-  days: number;
-  experiments: number;
-  todos: number;
-  /** Schema the file was written against; migrations run after it lands. */
-  version: number;
-};
-
-type ExportPayload = {
-  version?: number;
-  settings?: Settings;
-  blocks: TimeBlock[];
-  experiments?: ExperimentSession[];
-  todos?: Todo[];
-};
-
-const CLOCK = /^\d{1,2}:\d{2}$/;
-const DATE = /^\d{4}-\d{2}-\d{2}$/;
-
-function looksLikeBlock(value: unknown): value is TimeBlock {
-  if (!value || typeof value !== "object") return false;
-  const b = value as Record<string, unknown>;
-  return (
-    typeof b.id === "string" &&
-    typeof b.date === "string" &&
-    DATE.test(b.date) &&
-    typeof b.category === "string" &&
-    typeof b.startTime === "string" &&
-    CLOCK.test(b.startTime) &&
-    typeof b.endTime === "string" &&
-    CLOCK.test(b.endTime)
-  );
-}
-
-/**
- * Reads an export without writing anything, so the UI can say what is in the
- * file before it replaces what is already here. Throws a sentence a person can
- * act on rather than a parser error.
- */
-export function readExport(json: string): { payload: ExportPayload; summary: ImportSummary } {
-  let raw: unknown;
-  try {
-    raw = JSON.parse(json);
-  } catch {
-    throw new Error("That file is not valid JSON.");
-  }
-
-  if (!raw || typeof raw !== "object" || !Array.isArray((raw as Record<string, unknown>).blocks)) {
-    throw new Error("That does not look like a Day Analysis export.");
-  }
-
-  const data = raw as Record<string, unknown>;
-  const entries = data.blocks as unknown[];
-  const blocks = entries.filter(looksLikeBlock);
-  if (blocks.length !== entries.length) {
-    const bad = entries.length - blocks.length;
-    throw new Error(`${bad} of ${entries.length} blocks in that file are malformed, so nothing was imported.`);
-  }
-
-  const experiments = Array.isArray(data.experiments) ? (data.experiments as ExperimentSession[]) : [];
-  const todos = Array.isArray(data.todos) ? (data.todos as Todo[]) : [];
-  const version = typeof data.version === "number" ? data.version : 1;
-
-  return {
-    payload: {
-      version,
-      settings: (data.settings as Settings | undefined) ?? undefined,
-      blocks,
-      experiments,
-      todos,
-    },
-    summary: {
-      blocks: blocks.length,
-      days: new Set(blocks.map((b) => b.date)).size,
-      experiments: experiments.length,
-      todos: todos.length,
-      version,
-    },
-  };
-}
-
-/* ------------------------------------------------------------------ *
  * Public API
  * ------------------------------------------------------------------ */
 
 export const storage = {
   async getSettings(): Promise<Settings> {
-    ensureMigrated();
-    return readSettings();
+    const userId = await currentUserId();
+    const { data, error } = await supabase()
+      .from("settings")
+      .select("interval,day_starts_at,enabled_categories")
+      .eq("user_id", userId)
+      .maybeSingle();
+    fail("Could not read your settings", error);
+
+    if (!data) return DEFAULT_SETTINGS;
+    const enabled = ((data.enabled_categories ?? []) as ActivityCategory[]).filter((c) =>
+      ALL_CATEGORY_IDS.includes(c),
+    );
+    return {
+      interval: data.interval === 30 || data.interval === 60 ? data.interval : 15,
+      dayStartsAt: data.day_starts_at ?? DEFAULT_SETTINGS.dayStartsAt,
+      enabledCategories: enabled.length > 0 ? enabled : DEFAULT_SETTINGS.enabledCategories,
+    };
   },
 
   async saveSettings(patch: Partial<Settings>): Promise<Settings> {
-    ensureMigrated();
-    const merged = { ...readSettings(), ...patch };
-    write(KEYS.settings, merged);
+    const userId = await currentUserId();
+    const merged = { ...(await storage.getSettings()), ...patch };
+    const { error } = await supabase().from("settings").upsert({
+      user_id: userId,
+      interval: merged.interval,
+      day_starts_at: merged.dayStartsAt,
+      enabled_categories: merged.enabledCategories,
+    });
+    fail("Could not save your settings", error);
     return merged;
   },
 
   async getAllBlocks(): Promise<TimeBlock[]> {
-    ensureMigrated();
-    return read<TimeBlock[]>(KEYS.blocks, []);
+    const { data, error } = await supabase().from("blocks").select(BLOCK_COLUMNS);
+    fail("Could not read your blocks", error);
+    return ((data ?? []) as BlockRow[]).map(toBlock);
   },
 
   async getBlocks(date: string, dayStart: number): Promise<TimeBlock[]> {
-    ensureMigrated();
-    const all = read<TimeBlock[]>(KEYS.blocks, []);
-    return sortBlocks(
-      all.filter((b) => b.date === date),
-      dayStart,
-    );
+    const { data, error } = await supabase().from("blocks").select(BLOCK_COLUMNS).eq("date", date);
+    fail("Could not read that day", error);
+    return sortBlocks(((data ?? []) as BlockRow[]).map(toBlock), dayStart);
   },
 
   /** One round trip for a set of days, which is what History and Dashboard need. */
   async getBlocksForDays(dates: string[], dayStart: number): Promise<Record<string, TimeBlock[]>> {
-    ensureMigrated();
-    const wanted = new Set(dates);
     const grouped: Record<string, TimeBlock[]> = {};
     for (const date of dates) grouped[date] = [];
-    for (const block of read<TimeBlock[]>(KEYS.blocks, [])) {
-      if (wanted.has(block.date)) grouped[block.date].push(block);
+    if (dates.length === 0) return grouped;
+
+    const { data, error } = await supabase().from("blocks").select(BLOCK_COLUMNS).in("date", dates);
+    fail("Could not read those days", error);
+
+    for (const row of (data ?? []) as BlockRow[]) {
+      const block = toBlock(row);
+      if (grouped[block.date]) grouped[block.date].push(block);
     }
     for (const date of dates) grouped[date] = sortBlocks(grouped[date], dayStart);
     return grouped;
   },
 
   async createBlock(input: NewTimeBlock, dayStart: number): Promise<TimeBlock> {
-    ensureMigrated();
+    const userId = await currentUserId();
     const stamp = now();
     const block: TimeBlock = { ...input, id: uid(), createdAt: stamp, updatedAt: stamp };
-    const all = read<TimeBlock[]>(KEYS.blocks, []);
-    write(KEYS.blocks, [...applyDiff(all, resolveOverlaps(all, block, dayStart)), block]);
+
+    const existing = await storage.getBlocks(input.date, dayStart);
+    await applyDiff(resolveOverlaps(existing, block, dayStart), userId);
+
+    const { error } = await supabase().from("blocks").insert(toBlockRow(block, userId));
+    fail("Could not record that block", error);
     return block;
   },
 
-  async updateBlock(id: string, patch: Partial<NewTimeBlock>, dayStart: number): Promise<TimeBlock | null> {
-    ensureMigrated();
-    const all = read<TimeBlock[]>(KEYS.blocks, []);
-    const existing = all.find((b) => b.id === id);
-    if (!existing) return null;
+  async updateBlock(
+    id: string,
+    patch: Partial<NewTimeBlock>,
+    dayStart: number,
+  ): Promise<TimeBlock | null> {
+    const userId = await currentUserId();
+    const { data, error } = await supabase()
+      .from("blocks")
+      .select(BLOCK_COLUMNS)
+      .eq("id", id)
+      .maybeSingle();
+    fail("Could not find that block", error);
+    if (!data) return null;
 
-    const updated: TimeBlock = { ...existing, ...patch, updatedAt: now() };
-    const others = all.filter((b) => b.id !== id);
-    write(KEYS.blocks, [...applyDiff(others, resolveOverlaps(others, updated, dayStart)), updated]);
+    const updated: TimeBlock = { ...toBlock(data as BlockRow), ...patch, updatedAt: now() };
+    const others = (await storage.getBlocks(updated.date, dayStart)).filter((b) => b.id !== id);
+    await applyDiff(resolveOverlaps(others, updated, dayStart), userId);
+
+    const { error: saveError } = await supabase().from("blocks").upsert(toBlockRow(updated, userId));
+    fail("Could not save that block", saveError);
     return updated;
   },
 
   async deleteBlock(id: string): Promise<void> {
-    const all = read<TimeBlock[]>(KEYS.blocks, []);
-    write(
-      KEYS.blocks,
-      all.filter((b) => b.id !== id),
-    );
+    const { error } = await supabase().from("blocks").delete().eq("id", id);
+    fail("Could not delete that block", error);
   },
 
   /** Every day-window key holding at least one block, newest first. */
   async getTrackedDays(): Promise<string[]> {
-    ensureMigrated();
-    const days = new Set(read<TimeBlock[]>(KEYS.blocks, []).map((b) => b.date));
-    return [...days].sort((a, b) => (a < b ? 1 : -1));
+    const { data, error } = await supabase()
+      .from("blocks")
+      .select("date")
+      .order("date", { ascending: false });
+    fail("Could not read your days", error);
+    return [...new Set(((data ?? []) as { date: string }[]).map((row) => row.date))];
   },
 
   async getExperimentSessions(): Promise<ExperimentSession[]> {
-    ensureMigrated();
-    return read<ExperimentSession[]>(KEYS.experiments, []);
+    const { data, error } = await supabase()
+      .from("experiment_sessions")
+      .select("id,date,block_size,started_at,ended_at,elapsed_minutes,outcome,note")
+      .order("started_at", { ascending: true });
+    fail("Could not read your experiment runs", error);
+    return (data ?? []).map((row) => ({
+      id: row.id as string,
+      date: row.date as string,
+      blockSize: row.block_size as ExperimentSession["blockSize"],
+      startedAt: row.started_at as string,
+      endedAt: row.ended_at as string,
+      elapsedMinutes: row.elapsed_minutes as number,
+      outcome: row.outcome as ExperimentSession["outcome"],
+      note: (row.note as string | null) ?? undefined,
+    }));
   },
 
   async createExperimentSession(input: Omit<ExperimentSession, "id">): Promise<ExperimentSession> {
+    const userId = await currentUserId();
     const session: ExperimentSession = { ...input, id: uid() };
-    write(KEYS.experiments, [...read<ExperimentSession[]>(KEYS.experiments, []), session]);
+    const { error } = await supabase().from("experiment_sessions").insert({
+      id: session.id,
+      user_id: userId,
+      date: session.date,
+      block_size: session.blockSize,
+      started_at: session.startedAt,
+      ended_at: session.endedAt,
+      elapsed_minutes: session.elapsedMinutes,
+      outcome: session.outcome,
+      note: session.note ?? null,
+    });
+    fail("Could not record that run", error);
     return session;
   },
 
   async clearExperimentSessions(): Promise<void> {
-    write(KEYS.experiments, []);
+    const userId = await currentUserId();
+    const { error } = await supabase().from("experiment_sessions").delete().eq("user_id", userId);
+    fail("Could not clear your experiment runs", error);
   },
 
   /* ---------------- reminders ---------------- */
 
   async getTodos(): Promise<Todo[]> {
-    return read<Todo[]>(KEYS.todos, []);
+    const { data, error } = await supabase()
+      .from("todos")
+      .select("id,text,done,created_at,completed_at")
+      .order("created_at", { ascending: true });
+    fail("Could not read your reminders", error);
+    return (data ?? []).map((row) => ({
+      id: row.id as string,
+      text: row.text as string,
+      done: row.done as boolean,
+      createdAt: row.created_at as string,
+      completedAt: (row.completed_at as string | null) ?? undefined,
+    }));
   },
 
   async createTodo(text: string): Promise<Todo> {
+    const userId = await currentUserId();
     const todo: Todo = { id: uid(), text, done: false, createdAt: now() };
-    write(KEYS.todos, [...read<Todo[]>(KEYS.todos, []), todo]);
+    const { error } = await supabase().from("todos").insert({
+      id: todo.id,
+      user_id: userId,
+      text: todo.text,
+      done: false,
+      created_at: todo.createdAt,
+    });
+    fail("Could not add that reminder", error);
     return todo;
   },
 
   async setTodoDone(id: string, done: boolean): Promise<void> {
-    write(
-      KEYS.todos,
-      read<Todo[]>(KEYS.todos, []).map((t) =>
-        t.id === id ? { ...t, done, completedAt: done ? now() : undefined } : t,
-      ),
-    );
+    const { error } = await supabase()
+      .from("todos")
+      .update({ done, completed_at: done ? now() : null })
+      .eq("id", id);
+    fail("Could not update that reminder", error);
   },
 
   async deleteTodo(id: string): Promise<void> {
-    write(
-      KEYS.todos,
-      read<Todo[]>(KEYS.todos, []).filter((t) => t.id !== id),
-    );
+    const { error } = await supabase().from("todos").delete().eq("id", id);
+    fail("Could not delete that reminder", error);
   },
 
   async clearDoneTodos(): Promise<void> {
-    write(
-      KEYS.todos,
-      read<Todo[]>(KEYS.todos, []).filter((t) => !t.done),
-    );
+    const userId = await currentUserId();
+    const { error } = await supabase().from("todos").delete().eq("user_id", userId).eq("done", true);
+    fail("Could not clear finished reminders", error);
   },
+
+  /* ---------------- whole-account operations ---------------- */
 
   async exportAll(): Promise<string> {
-    ensureMigrated();
-    return JSON.stringify(
-      {
-        version: SCHEMA_VERSION,
-        exportedAt: now(),
-        settings: readSettings(),
-        blocks: read<TimeBlock[]>(KEYS.blocks, []),
-        experiments: read<ExperimentSession[]>(KEYS.experiments, []),
-        todos: read<Todo[]>(KEYS.todos, []),
-      },
-      null,
-      2,
-    );
+    const [settings, blocks, experiments, todos] = await Promise.all([
+      storage.getSettings(),
+      storage.getAllBlocks(),
+      storage.getExperimentSessions(),
+      storage.getTodos(),
+    ]);
+    return JSON.stringify({ version: 4, exportedAt: now(), settings, blocks, experiments, todos }, null, 2);
   },
 
-  /** Reads a file without touching what is stored. */
-  async inspectImport(json: string): Promise<ImportSummary> {
-    return readExport(json).summary;
-  },
+  /**
+   * Replaces everything this account holds with the contents of an export.
+   * The blocks in a export were already resolved against each other, so they
+   * go in as they are rather than back through the overlap rules one by one.
+   */
+  async replaceAll(payload: {
+    settings?: Settings;
+    blocks: TimeBlock[];
+    experiments?: ExperimentSession[];
+    todos?: Todo[];
+  }): Promise<void> {
+    const userId = await currentUserId();
+    const client = supabase();
 
-  async importAll(json: string): Promise<ImportSummary> {
-    const { payload, summary } = readExport(json);
+    await storage.clearAll();
 
-    write(KEYS.blocks, payload.blocks);
-    write(KEYS.experiments, payload.experiments ?? []);
-    write(KEYS.todos, payload.todos ?? []);
-    if (payload.settings) write(KEYS.settings, payload.settings);
+    for (let i = 0; i < payload.blocks.length; i += 500) {
+      const chunk = payload.blocks.slice(i, i + 500).map((b) => toBlockRow(b, userId));
+      const { error } = await client.from("blocks").insert(chunk);
+      fail("Could not import your blocks", error);
+    }
 
-    // The file may predate the current schema, so let the chain run over it.
-    write(KEYS.schema, summary.version);
-    migrationChecked = false;
-    ensureMigrated();
+    if (payload.experiments && payload.experiments.length > 0) {
+      const { error } = await client.from("experiment_sessions").insert(
+        payload.experiments.map((s) => ({
+          id: s.id,
+          user_id: userId,
+          date: s.date,
+          block_size: s.blockSize,
+          started_at: s.startedAt,
+          ended_at: s.endedAt,
+          elapsed_minutes: s.elapsedMinutes,
+          outcome: s.outcome,
+          note: s.note ?? null,
+        })),
+      );
+      fail("Could not import your experiment runs", error);
+    }
 
-    return summary;
+    if (payload.todos && payload.todos.length > 0) {
+      const { error } = await client.from("todos").insert(
+        payload.todos.map((t) => ({
+          id: t.id,
+          user_id: userId,
+          text: t.text,
+          done: t.done,
+          created_at: t.createdAt,
+          completed_at: t.completedAt ?? null,
+        })),
+      );
+      fail("Could not import your reminders", error);
+    }
+
+    if (payload.settings) await storage.saveSettings(payload.settings);
   },
 
   async clearAll(): Promise<void> {
-    write(KEYS.blocks, []);
-    write(KEYS.todos, []);
-    write(KEYS.schema, SCHEMA_VERSION);
-    write(KEYS.experiments, []);
-    write(KEYS.settings, DEFAULT_SETTINGS);
+    const userId = await currentUserId();
+    const client = supabase();
+    for (const table of ["blocks", "experiment_sessions", "todos"]) {
+      const { error } = await client.from(table).delete().eq("user_id", userId);
+      fail(`Could not clear ${table}`, error);
+    }
   },
 };

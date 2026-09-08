@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { LocalArchiveNotice } from "@/components/auth/LocalArchiveNotice";
 import { DailySummary } from "@/components/dashboard/DailySummary";
 import { InsightCard } from "@/components/dashboard/InsightCard";
 import { TimeDistribution } from "@/components/dashboard/TimeDistribution";
@@ -80,6 +81,8 @@ export default function TodayPage() {
 
   return (
     <div>
+      <LocalArchiveNotice onImported={() => window.location.reload()} />
+
       <header className="mb-7">
         <p className="text-[13px] text-muted">{formatDayLong(key)}</p>
         <h1 className="ask mt-1.5 text-[clamp(28px,4vw,38px)] text-ink">How did you spend your day?</h1>

@@ -2,10 +2,12 @@
 
 import { useRef, useState } from "react";
 import { CategoryIcon } from "@/components/ui/CategoryIcon";
+import { useAuth } from "@/lib/auth-context";
 import { Button, Card, PanelTitle, Segmented } from "@/components/ui/primitives";
 import { CATEGORIES } from "@/lib/categories";
 import { useSettings } from "@/lib/settings-context";
-import { storage, type ImportSummary } from "@/lib/storage";
+import { readExport, type ImportSummary } from "@/lib/import";
+import { storage } from "@/lib/storage";
 import { formatDuration, toClock, toMinutes } from "@/lib/time";
 import type { ActivityCategory, Interval } from "@/types/time";
 
@@ -17,6 +19,7 @@ const INTERVALS: { value: Interval; label: string }[] = [
 
 export default function SettingsPage() {
   const { settings, updateSettings, ready } = useSettings();
+  const { session, signOut } = useAuth();
   const [confirmingReset, setConfirmingReset] = useState(false);
   const [pending, setPending] = useState<{ json: string; summary: ImportSummary } | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
@@ -124,10 +127,23 @@ export default function SettingsPage() {
         </Card>
 
         <Card className="p-5">
+          <PanelTitle aside={session?.user.email ?? undefined}>Account</PanelTitle>
+          <p className="mt-2 max-w-[52ch] text-[13.5px] leading-relaxed text-muted">
+            Your days live in your account, so this browser and your phone show the same record. Nobody
+            else can read it.
+          </p>
+          <div className="mt-4">
+            <Button variant="secondary" size="sm" onClick={() => void signOut()}>
+              Sign out
+            </Button>
+          </div>
+        </Card>
+
+        <Card className="p-5">
           <PanelTitle>Your data</PanelTitle>
           <p className="mt-2 max-w-[52ch] text-[13.5px] leading-relaxed text-muted">
-            Everything lives in this browser, on this device. Export a copy before clearing site data or
-            switching browsers, and import it to bring a day back.
+            Export a copy whenever you want one of your own. Importing replaces everything in your
+            account, so it restores a backup rather than merging one in.
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <Button
@@ -162,7 +178,7 @@ export default function SettingsPage() {
                 setPending(null);
                 try {
                   const json = await file.text();
-                  setPending({ json, summary: await storage.inspectImport(json) });
+                  setPending({ json, summary: readExport(json).summary });
                 } catch (error) {
                   setImportError(error instanceof Error ? error.message : "That file could not be read.");
                 }
@@ -226,7 +242,7 @@ export default function SettingsPage() {
                   variant="primary"
                   size="sm"
                   onClick={async () => {
-                    await storage.importAll(pending.json);
+                    await storage.replaceAll(readExport(pending.json).payload);
                     window.location.reload();
                   }}
                 >
