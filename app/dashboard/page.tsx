@@ -12,21 +12,21 @@ import { useLocale } from "@/lib/locale-context";
 import { useSettings } from "@/lib/settings-context";
 import { storage } from "@/lib/storage";
 import type { MessageKey } from "@/lib/i18n";
-import { formatDuration, formatHours, recentKeys, weekKeys } from "@/lib/time";
+import { formatDuration, formatHours, recentKeys } from "@/lib/time";
 import type { TimeBlock } from "@/types/time";
 
-type RangeId = "week" | "7" | "30";
+type RangeId = "7" | "30" | "life";
 
 const RANGE_LABEL: Record<RangeId, MessageKey> = {
-  week: "dashboard.week",
   "7": "dashboard.last7",
   "30": "dashboard.last30",
+  life: "dashboard.lifetime",
 };
 
 const RANGE_QUESTION: Record<RangeId, MessageKey> = {
-  week: "dashboard.weekQuestion",
   "7": "dashboard.sevenQuestion",
   "30": "dashboard.monthQuestion",
+  life: "dashboard.lifetimeQuestion",
 };
 
 export default function DashboardPage() {
@@ -34,14 +34,17 @@ export default function DashboardPage() {
   const { locale, t } = useLocale();
   const { key: todayKey, elapsed } = useToday();
 
-  const [range, setRange] = useState<RangeId>("week");
+  const [range, setRange] = useState<RangeId>("7");
+  const [trackedDays, setTrackedDays] = useState<string[]>([]);
   const [blocksByDay, setBlocksByDay] = useState<Record<string, TimeBlock[]>>({});
   const [daysTracked, setDaysTracked] = useState<number | null>(null);
 
+  // All time means every day actually recorded, oldest first, because the
+  // rhythm measures read a night from the day before it.
   const keys = useMemo(() => {
-    if (range === "week") return weekKeys(todayKey);
+    if (range === "life") return [...trackedDays].sort();
     return recentKeys(todayKey, range === "7" ? 7 : 30);
-  }, [range, todayKey]);
+  }, [range, todayKey, trackedDays]);
 
   // dayStart was read here but missing from the deps, so changing the day
   // start left this page showing the old buckets until a reload.
@@ -52,7 +55,10 @@ export default function DashboardPage() {
   // Every day ever recorded, not only the ones in view: the number that says
   // how long you have kept this up.
   useEffect(() => {
-    storage.getTrackedDays().then((days) => setDaysTracked(days.length));
+    storage.getTrackedDays().then((days) => {
+      setTrackedDays(days);
+      setDaysTracked(days.length);
+    });
   }, [blocksByDay]);
 
   const totals = useMemo(() => {
@@ -73,7 +79,7 @@ export default function DashboardPage() {
     [totals, blocksByDay, dayStart, spanMinutes],
   );
 
-  const weekChartDays = range === "week" ? totals.days : totals.days.slice(-7);
+  const weekChartDays = totals.days.slice(-7);
 
   const measures = useMemo(() => rhythm(keys, blocksByDay, dayStart), [keys, blocksByDay, dayStart]);
 
@@ -89,7 +95,10 @@ export default function DashboardPage() {
           <h1 className="ask mt-1.5 text-[clamp(28px,4vw,38px)] text-ink">{t("dashboard.question")}</h1>
         </div>
         <Segmented
-          options={(["week", "7", "30"] as RangeId[]).map((value) => ({ value, label: t(RANGE_LABEL[value]) }))}
+          options={(["7", "30", "life"] as RangeId[]).map((value) => ({
+            value,
+            label: t(RANGE_LABEL[value]),
+          }))}
           value={range}
           onChange={setRange}
           label={t("dashboard.period")}
@@ -176,7 +185,7 @@ export default function DashboardPage() {
             <WeeklyChart
               days={weekChartDays}
               todayKey={todayKey}
-              title={t(range === "week" ? "chart.focusedWeek" : "chart.focusedSeven")}
+              title={t("chart.focusedSeven")}
             />
           </div>
         </div>

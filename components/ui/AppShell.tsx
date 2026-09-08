@@ -8,8 +8,9 @@ import { useT } from "@/lib/locale-context";
 
 const NAV: { href: string; key: MessageKey }[] = [
   { href: "/", key: "nav.today" },
-  { href: "/history", key: "nav.history" },
   { href: "/dashboard", key: "nav.dashboard" },
+  { href: "/history", key: "nav.history" },
+  { href: "/routines", key: "nav.routines" },
   // Experiment still lives at /experiment; it is out of the nav until it earns
   // its place back.
   { href: "/settings", key: "nav.settings" },

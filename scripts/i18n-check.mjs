@@ -63,7 +63,24 @@ for (const m of categories.matchAll(/\{\s*id:\s*"(\w+)"/g)) {
   }
 }
 
-// 4. Every literal key the app asks for must exist.
+// 4. Routine copy lives with its data, not in the dictionary, but is held to
+//    the same standard.
+const routines = readFileSync(join(ROOT, "lib/routines.ts"), "utf8");
+// Trailing comma before the brace, same as the dictionary entries.
+const pairRe = new RegExp(String.raw`\{\s*en:\s*(${STRING})\s*,\s*ko:\s*(${STRING})\s*,?\s*\}`, "g");
+const routinePairs = [...routines.matchAll(pairRe)];
+if (routinePairs.length === 0) findings.push("lib/routines.ts: no bilingual strings found");
+for (const [, en, ko] of routinePairs) {
+  if (!JSON.parse(en).trim()) findings.push("lib/routines.ts: an english string is empty");
+  if (!JSON.parse(ko).trim()) findings.push("lib/routines.ts: a korean string is empty");
+}
+// A lone `en:` with no `ko:` beside it would slip past the pair matcher.
+const enCount = routines.split(String.raw`en: "`).length - 1;
+if (enCount !== routinePairs.length) {
+  findings.push(`lib/routines.ts: ${enCount} english strings but ${routinePairs.length} complete pairs`);
+}
+
+// 5. Every literal key the app asks for must exist.
 const files = [...walk(join(ROOT, "app")), ...walk(join(ROOT, "components")), ...walk(join(ROOT, "lib"))];
 for (const file of files) {
   const path = relative(ROOT, file).replace(/\\/g, "/");

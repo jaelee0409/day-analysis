@@ -30,6 +30,7 @@ export const DICTIONARY = {
   "nav.history": { en: "History", ko: "기록" },
   "nav.dashboard": { en: "Dashboard", ko: "분석" },
   "nav.experiment": { en: "Experiment", ko: "실험" },
+  "nav.routines": { en: "Routines", ko: "루틴" },
   "nav.settings": { en: "Settings", ko: "설정" },
   "nav.openMenu": { en: "Open menu", ko: "메뉴 열기" },
   "nav.closeMenu": { en: "Close menu", ko: "메뉴 닫기" },
@@ -120,9 +121,9 @@ export const DICTIONARY = {
   /* ---------------- dashboard ---------------- */
   "dashboard.question": { en: "What does the pattern say?", ko: "어떤 패턴이 보이나요?" },
   "dashboard.daysOf": { en: "{active} of {total} days recorded", ko: "{total}일 중 {active}일 기록함" },
-  "dashboard.week": { en: "This week", ko: "이번 주" },
   "dashboard.last7": { en: "Last 7 days", ko: "최근 7일" },
   "dashboard.last30": { en: "Last 30 days", ko: "최근 30일" },
+  "dashboard.lifetime": { en: "All time", ko: "전체" },
   "dashboard.period": { en: "Period", ko: "기간" },
   "dashboard.overview": { en: "Overview", ko: "요약" },
   "dashboard.elapsed": { en: "{hours} elapsed", ko: "{hours} 경과" },
@@ -143,13 +144,12 @@ export const DICTIONARY = {
     en: "The dashboard reads whatever you have recorded. Track a day or two and the totals, weekly rhythm, and observations fill in on their own.",
     ko: "기록한 내용을 그대로 읽어 보여 줍니다. 하루 이틀만 기록해도 합계와 리듬, 관찰이 저절로 채워집니다.",
   },
-  "dashboard.weekQuestion": { en: "Where did your week go?", ko: "이번 주가 어디로 갔을까요?" },
   "dashboard.sevenQuestion": { en: "Where did the last seven days go?", ko: "지난 7일이 어디로 갔을까요?" },
   "dashboard.monthQuestion": { en: "Where did the last month go?", ko: "지난 한 달이 어디로 갔을까요?" },
+  "dashboard.lifetimeQuestion": { en: "Where has all of it gone?", ko: "지금까지 시간이 어디로 갔을까요?" },
 
   /* ---------------- weekly chart ---------------- */
-  "chart.focusedWeek": { en: "Focused work this week", ko: "이번 주 집중 시간" },
-  "chart.focusedSeven": { en: "Focused work, last 7 days", ko: "최근 7일 집중 시간" },
+  "chart.focusedSeven": { en: "Focused work, last 7 recorded days", ko: "최근 기록한 7일의 집중 시간" },
   "chart.inTotal": { en: "{duration} in total", ko: "합계 {duration}" },
   "chart.legend": {
     en: "Solid marks focused work. The lighter run is everything else you recorded.",
@@ -226,6 +226,28 @@ export const DICTIONARY = {
   "insight.emptyDay": {
     en: "Record a block or two and the answer builds itself.",
     ko: "블록을 몇 개만 기록해도 답이 스스로 채워집니다.",
+  },
+
+  /* ---------------- routines ---------------- */
+  "routines.context": { en: "Days other people are reported to keep", ko: "다른 사람들이 지낸다고 알려진 하루" },
+  "routines.question": { en: "How do other people build a day?", ko: "다른 사람들은 하루를 어떻게 짜나요?" },
+  "routines.pick": { en: "Whose day", ko: "누구의 하루" },
+  "routines.theirDay": { en: "Their day", ko: "그 사람의 하루" },
+  "routines.breakdown": { en: "How it divides", ko: "어떻게 나뉘나" },
+  "routines.compare": { en: "Beside your own", ko: "내 하루와 나란히" },
+  "routines.yours": { en: "Yours", ko: "나" },
+  "routines.theirs": { en: "Theirs", ko: "그 사람" },
+  "routines.yourAverage": {
+    en: "Your average across {days} recorded days, against their reported day.",
+    ko: "기록한 {days}일의 평균과 알려진 하루를 나란히 둔 것입니다.",
+  },
+  "routines.needDays": {
+    en: "Record a couple of days and your own averages appear here beside theirs.",
+    ko: "며칠만 기록하면 내 평균이 여기 나란히 나타납니다.",
+  },
+  "routines.caveat": {
+    en: "Assembled from public interviews and profiles, not from records. Sources disagree, nobody's day is this tidy, and none of this is a target — it is here to compare against, nothing more.",
+    ko: "공개된 인터뷰와 기사에서 모은 것이며 실제 기록이 아닙니다. 출처마다 내용이 다르고, 누구의 하루도 이렇게 정돈되어 있지 않습니다. 목표가 아니라 견주어 볼 대상일 뿐입니다.",
   },
 
   /* ---------------- settings ---------------- */

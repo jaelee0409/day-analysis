@@ -30,6 +30,7 @@ export function TimeBlockItem({
   layout,
   continuesAbove = false,
   continuesBelow = false,
+  readOnly = false,
   onOpen,
   onResizeStart,
 }: {
@@ -37,6 +38,7 @@ export function TimeBlockItem({
   layout: BlockLayout;
   continuesAbove?: boolean;
   continuesBelow?: boolean;
+  readOnly?: boolean;
   onOpen: (block: TimeBlock) => void;
   onResizeStart: (block: TimeBlock, edge: "start" | "end") => void;
 }) {
@@ -65,6 +67,7 @@ export function TimeBlockItem({
     >
       <button
         type="button"
+        disabled={readOnly}
         onClick={() => onOpen(block)}
         className={`flex h-full w-full flex-col gap-0.5 px-2.5 text-left ${
           compact ? "justify-center" : "justify-start pt-1.5"
@@ -92,7 +95,7 @@ export function TimeBlockItem({
         )}
       </button>
 
-      {continuesAbove ? null : (
+      {continuesAbove || readOnly ? null : (
         <span
           className="activity-handle absolute inset-x-0 top-0 h-[7px] cursor-ns-resize"
           onPointerDown={(event) => {
@@ -105,7 +108,7 @@ export function TimeBlockItem({
         </span>
       )}
 
-      {continuesBelow ? null : (
+      {continuesBelow || readOnly ? null : (
         <span
           className="activity-handle absolute inset-x-0 bottom-0 h-[7px] cursor-ns-resize"
           onPointerDown={(event) => {

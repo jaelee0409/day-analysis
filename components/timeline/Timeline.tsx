@@ -32,6 +32,8 @@ export type TimelineProps = {
   openAt?: { start: number; end: number; token: number } | null;
   /** Scrolls the page to the current time when the day first loads. */
   focusOnLoad?: boolean;
+  /** Someone else's day: drawn on the same ruler, but not yours to edit. */
+  readOnly?: boolean;
 };
 
 /**
@@ -50,6 +52,7 @@ export function Timeline({
   onDelete,
   openAt,
   focusOnLoad = false,
+  readOnly = false,
 }: TimelineProps) {
   const { locale, t } = useLocale();
   const trackRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -326,6 +329,7 @@ export function Timeline({
                     />
 
                     {/* Capture layer for click-and-drag recording. Sits under the blocks. */}
+                    {readOnly ? null : (
                     <div
                       className="absolute inset-y-0 right-0 cursor-crosshair"
                       // Set outright rather than through a utility: Tailwind
@@ -338,6 +342,7 @@ export function Timeline({
                       onPointerCancel={abandonDraft}
                       onPointerLeave={() => setHover(null)}
                     />
+                    )}
 
                     {bandHere ? (
                       <div
@@ -370,7 +375,8 @@ export function Timeline({
                             layout={segment.layout}
                             continuesAbove={segment.continuesAbove}
                             continuesBelow={segment.continuesBelow}
-                            onOpen={(b) => setTarget({ mode: "edit", block: b })}
+                            readOnly={readOnly}
+                            onOpen={(b) => (readOnly ? undefined : setTarget({ mode: "edit", block: b }))}
                             onResizeStart={(b, edge) => startResize(b, edge, column)}
                           />
                         ))}
