@@ -8,3 +8,6 @@ npm-debug.log*
 .env*
 next-env.d.ts
 tsconfig.tsbuildinfo
+
+# scratch files from local probing
+*.tmp.json
