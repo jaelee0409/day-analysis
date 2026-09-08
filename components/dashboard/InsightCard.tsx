@@ -30,7 +30,9 @@ export function InsightCard({
 
       <div className="@min-[720px]:grid @min-[720px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] @min-[720px]:items-start">
       <ul className="mt-5 px-6 @min-[720px]:mb-6">
-        {spend.slice(0, 6).map((entry) => (
+        {/* Every category that holds time. A cap here silently drops the
+            smallest ones, which makes the answer to the question wrong. */}
+        {spend.map((entry) => (
           <li key={entry.id} className="flex items-baseline gap-3 border-t border-hairline py-2.5 first:border-t-0">
             <span className="shrink-0" style={{ color: entry.color }}>
               <CategoryIcon id={entry.id} />
