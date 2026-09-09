@@ -234,9 +234,10 @@ function percent(part: number, whole: number): number {
 }
 
 /**
- * Not rendered at the moment — Home dropped its observations — but kept
- * whole because it was asked for only "for now". The Dashboard's range
- * observations below are unaffected.
+ * Not rendered at the moment. Both observation builders were asked for only
+ * "for now", so they are kept whole and tested rather than deleted; the
+ * component that printed them is gone, since a list of sentences is trivial
+ * to write again and this arithmetic is not.
  */
 export function dayObservations(
   totals: DayTotals,
@@ -345,6 +346,7 @@ export function bestBlockSize(stats: BlockSizeStats[], minimumSessions = 3): Blo
  * Range observations
  * ------------------------------------------------------------------ */
 
+/** Not rendered at the moment either — see the note on dayObservations. */
 export function rangeObservations(
   totals: RangeTotals,
   blocksByDay: Record<string, TimeBlock[]>,

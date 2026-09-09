@@ -3,10 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { InsightCard } from "@/components/dashboard/InsightCard";
 import { RhythmPanel } from "@/components/dashboard/RhythmPanel";
-import { TimeDistribution } from "@/components/dashboard/TimeDistribution";
 import { WeeklyChart } from "@/components/dashboard/WeeklyChart";
 import { Card, EmptyState, PanelTitle, Segmented, Stat } from "@/components/ui/primitives";
-import { rangeObservations, rangeTotals, rhythm } from "@/lib/analytics";
+import { rangeTotals, rhythm } from "@/lib/analytics";
 import { useToday } from "@/lib/hooks";
 import { useLocale } from "@/lib/locale-context";
 import { useSettings } from "@/lib/settings-context";
@@ -73,11 +72,6 @@ export default function DashboardPage() {
 
   const spanMinutes = totals.days.reduce((sum, day) => sum + day.elapsed, 0);
   const unaccounted = Math.max(0, spanMinutes - totals.tracked);
-
-  const observations = useMemo(
-    () => rangeObservations(totals, blocksByDay, dayStart, spanMinutes),
-    [totals, blocksByDay, dayStart, spanMinutes],
-  );
 
   const weekChartDays = totals.days.slice(-7);
 
@@ -165,29 +159,15 @@ export default function DashboardPage() {
             <p className="mt-2 text-[12px] text-white/40">{t("dashboard.barNote")}</p>
           </Card>
 
-          <div>
-            <InsightCard
-              question={t(RANGE_QUESTION[range])}
-              spend={totals.byCategory}
-              observations={observations}
-            />
-          </div>
+          <InsightCard
+            question={t(RANGE_QUESTION[range])}
+            spend={totals.byCategory}
+            recordedDays={totals.activeDays}
+          />
 
           <RhythmPanel measures={measures} dayStart={dayStart} />
 
-          <div className="grid items-start gap-5 lg:grid-cols-2">
-            <TimeDistribution
-              totals={totals.byCategory}
-              title={t("dashboard.byCategory")}
-              aside={t("dashboard.trackedAside", { hours: formatHours(totals.tracked, locale) })}
-              recordedDays={totals.activeDays}
-            />
-            <WeeklyChart
-              days={weekChartDays}
-              todayKey={todayKey}
-              title={t("chart.focusedSeven")}
-            />
-          </div>
+          <WeeklyChart days={weekChartDays} todayKey={todayKey} title={t("chart.focusedSeven")} />
         </div>
       )}
     </div>

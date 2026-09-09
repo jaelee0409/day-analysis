@@ -127,8 +127,6 @@ export const DICTIONARY = {
     en: "The bar spans every hour in the period. The dark run at the end is time you did not record.",
     ko: "막대는 기간 전체의 시간을 나타냅니다. 끝의 어두운 부분은 기록하지 않은 시간입니다.",
   },
-  "dashboard.byCategory": { en: "Total by category", ko: "분류별 합계" },
-  "dashboard.trackedAside": { en: "{hours} tracked", ko: "{hours} 기록함" },
   "dashboard.emptyTitle": { en: "Nothing to analyse yet", ko: "아직 분석할 것이 없습니다" },
   "dashboard.emptyBody": {
     en: "The dashboard reads whatever you have recorded. Track a day or two and the totals, weekly rhythm, and observations fill in on their own.",
