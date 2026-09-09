@@ -39,9 +39,14 @@ export function InsightCard({
       <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 px-6 pt-6">
         <div>
           <h2 className="ask text-[26px] text-ink">{question}</h2>
-          {canAverage && perDay ? (
-            <p className="mt-1 text-[12px] text-faint">
-              {t("dist.perDayAside", { days: recordedDays })}
+          {/* Only the per-day scale has anything to say here, but the line
+              holds its height either way: a note that appears on one setting
+              and not the other would shove the card every time you switch.
+              The line-height is stated so the empty box and the filled one
+              measure the same in both languages. */}
+          {canAverage ? (
+            <p className="mt-1 h-[18px] text-[12px] leading-[18px] text-faint">
+              {perDay ? t("dist.perDayAside", { days: recordedDays }) : ""}
             </p>
           ) : null}
         </div>
