@@ -28,7 +28,10 @@ export function InsightCard({
   recordedDays?: number;
 }) {
   const { locale, t } = useLocale();
-  const [perDay, setPerDay] = useState(false);
+  // A day is the unit the reader lives in, so the answer opens on it. Totals
+  // over a period grow with the period and say more about how long you looked
+  // than about how you spend a day.
+  const [perDay, setPerDay] = useState(true);
   const canAverage = recordedDays > 1;
   const divisor = canAverage && perDay ? recordedDays : 1;
 
