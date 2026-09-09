@@ -6,7 +6,15 @@
  * replaced. Nothing here touches Supabase or the browser store.
  */
 
-import type { ExperimentSession, Habit, HabitCheck, Settings, TimeBlock, Todo } from "@/types/time";
+import type {
+  ExperimentSession,
+  Habit,
+  HabitCheck,
+  Settings,
+  TimeBlock,
+  TimeOfDay,
+  Todo,
+} from "@/types/time";
 
 export type ImportSummary = {
   blocks: number;
@@ -51,6 +59,23 @@ function looksLikeBlock(value: unknown): value is TimeBlock {
     typeof b.endTime === "string" &&
     CLOCK.test(b.endTime)
   );
+}
+
+const TIMES = ["morning", "afternoon", "night"];
+
+/**
+ * Moments arrived a version after habits did, so a file that predates them is
+ * read as a morning habit rather than rejected.
+ */
+function readTimes(value: unknown): TimeOfDay[] {
+  if (!Array.isArray(value)) return ["morning"];
+  const times = value.filter((t): t is TimeOfDay => typeof t === "string" && TIMES.includes(t));
+  return times.length > 0 ? times : ["morning"];
+}
+
+/** A check carries one moment, not a set. */
+function readTime(value: unknown): TimeOfDay {
+  return typeof value === "string" && TIMES.includes(value) ? (value as TimeOfDay) : "morning";
 }
 
 function looksLikeHabit(value: unknown): value is Habit {
@@ -109,9 +134,16 @@ export function readExport(json: string): { payload: ExportPayload; summary: Imp
   // Undefined and empty mean different things here: a file with no habits key
   // was written before habits existed, and importing it must leave the list
   // alone rather than clear it. Absence is carried through as undefined.
-  const habits = Array.isArray(data.habits) ? (data.habits as Habit[]).filter(looksLikeHabit) : undefined;
+  const habits = Array.isArray(data.habits)
+    ? (data.habits as Habit[])
+        .filter(looksLikeHabit)
+        .map((h) => ({ ...h, times: readTimes((h as { times?: unknown }).times) }))
+    : undefined;
   const habitChecks = Array.isArray(data.habitChecks)
-    ? (data.habitChecks as HabitCheck[]).filter(looksLikeHabitCheck)
+    ? (data.habitChecks as HabitCheck[]).filter(looksLikeHabitCheck).map((c) => ({
+        ...c,
+        timeOfDay: readTime((c as { timeOfDay?: unknown }).timeOfDay),
+      }))
     : undefined;
 
   return {

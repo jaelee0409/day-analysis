@@ -31,13 +31,19 @@ create table if not exists public.habits (
   -- 0 = Sunday .. 6 = Saturday, matching JavaScript's Date#getDay.
   days       smallint[] not null default array[0, 1, 2, 3, 4, 5, 6],
 
+  -- When in the day. More than one means more than one dose: a habit set to
+  -- morning and night is asked about twice, and ticked twice.
+  times      text[] not null default array['morning'],
+
   -- Order in the list, as the person arranged it.
   position   integer not null default 0,
   created_at timestamptz not null default now(),
 
   constraint habits_name_not_blank check (length(btrim(name)) > 0),
   constraint habits_has_a_day      check (array_length(days, 1) between 1 and 7),
-  constraint habits_days_in_range  check (days <@ array[0, 1, 2, 3, 4, 5, 6]::smallint[])
+  constraint habits_days_in_range  check (days <@ array[0, 1, 2, 3, 4, 5, 6]::smallint[]),
+  constraint habits_has_a_time     check (array_length(times, 1) between 1 and 3),
+  constraint habits_times_in_range check (times <@ array['morning', 'afternoon', 'night'])
 );
 
 create index if not exists habits_user_idx on public.habits (user_id, position);
@@ -51,12 +57,34 @@ create table if not exists public.habit_checks (
   -- Day-window key, same as blocks.date: the day the person was looking at,
   -- not necessarily the calendar date the clock had reached.
   date       date not null,
+
+  -- Which of the habit's moments this tick was for.
+  time_of_day text not null default 'morning',
   checked_at timestamptz not null default now(),
 
-  primary key (habit_id, date)
+  constraint habit_checks_time_valid check (time_of_day in ('morning', 'afternoon', 'night')),
+
+  primary key (habit_id, date, time_of_day)
 );
 
 create index if not exists habit_checks_user_date_idx on public.habit_checks (user_id, date);
+
+-- ------------------------------------------------------------------
+-- Upgrading an install that ran the first version of this file, when a habit
+-- was once-a-day and a check had no moment attached. No-ops on a fresh one.
+-- ------------------------------------------------------------------
+
+alter table public.habits
+  add column if not exists times text[] not null default array['morning'];
+
+alter table public.habit_checks
+  add column if not exists time_of_day text not null default 'morning';
+
+-- Existing ticks become morning ticks, so the key is unique either way. Drop
+-- and re-add rather than branching: on a fresh table this replaces the key
+-- with an identical one.
+alter table public.habit_checks drop constraint if exists habit_checks_pkey;
+alter table public.habit_checks add primary key (habit_id, date, time_of_day);
 
 -- ------------------------------------------------------------------
 -- Row Level Security — see schema.sql for why this is the whole API layer.

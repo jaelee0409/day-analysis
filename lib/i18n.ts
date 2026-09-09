@@ -117,8 +117,11 @@ export const DICTIONARY = {
     ko: "아직 목록이 비어 있습니다. 영양제나 스킨케어처럼 반복하는 일은 설정에서 추가하세요.",
   },
   "habits.noneToday": { en: "Nothing scheduled for this day.", ko: "이 날에는 예정된 것이 없습니다." },
-  "habits.markDone": { en: "Mark {name} as done", ko: "{name} 완료로 표시" },
-  "habits.markNotDone": { en: "Mark {name} as not done", ko: "{name} 미완료로 표시" },
+  "habits.morning": { en: "Morning", ko: "아침" },
+  "habits.afternoon": { en: "Afternoon", ko: "오후" },
+  "habits.night": { en: "Night", ko: "밤" },
+  "habits.markDone": { en: "Mark {name} done for {time}", ko: "{time} {name} 완료로 표시" },
+  "habits.markNotDone": { en: "Mark {name} not done for {time}", ko: "{time} {name} 미완료로 표시" },
 
   /* ---------------- dashboard ---------------- */
   "dashboard.question": { en: "What does the pattern say?", ko: "어떤 패턴이 보이나요?" },
@@ -283,8 +286,8 @@ export const DICTIONARY = {
   "settings.habits": { en: "Habits", ko: "습관" },
   "settings.habitsOn": { en: "{count} on the list", ko: "목록에 {count}개" },
   "settings.habitsBody": {
-    en: "Things you repeat rather than spend time on: a supplement, a step in a routine. Pick the days each one applies to. Only that day's habits appear on the home page, so two things that alternate can hold opposite nights.",
-    ko: "시간을 쓰는 일이 아니라 반복하는 일입니다. 영양제, 루틴의 한 단계 같은 것들입니다. 각각 어느 요일에 해당하는지 골라 주세요. 홈 화면에는 그날의 습관만 보이므로, 번갈아 하는 두 가지는 서로 다른 날을 맡으면 됩니다.",
+    en: "Things you repeat rather than spend time on: a supplement, a step in a routine. Pick the days each one applies to and when in the day it belongs. Two moments means two doses, asked about separately. Only that day's habits appear on the home page, so two things that alternate can hold opposite nights.",
+    ko: "시간을 쓰는 일이 아니라 반복하는 일입니다. 영양제, 루틴의 한 단계 같은 것들입니다. 어느 요일에, 하루 중 언제 하는지 골라 주세요. 두 시간을 고르면 하루에 두 번으로, 각각 따로 체크합니다. 홈 화면에는 그날의 습관만 보이므로, 번갈아 하는 두 가지는 서로 다른 날을 맡으면 됩니다.",
   },
   "settings.habitsEmpty": { en: "Nothing here yet — add your first one below.", ko: "아직 비어 있습니다. 아래에서 첫 항목을 추가하세요." },
   "settings.habitAdd": { en: "Add", ko: "추가" },
@@ -297,6 +300,9 @@ export const DICTIONARY = {
   "settings.habitDays": { en: "Days for {name}", ko: "{name}의 요일" },
   "settings.habitDay": { en: "{day} for {name}", ko: "{name}: {day}" },
   "settings.habitEveryDay": { en: "every day", ko: "매일" },
+  "settings.habitTimes": { en: "When in the day for {name}", ko: "{name}의 복용 시간" },
+  "settings.habitTime": { en: "{time} for {name}", ko: "{name}: {time}" },
+  "settings.habitDoses": { en: "{count} a day", ko: "하루 {count}번" },
   "settings.importHabits": { en: ", {count} habits", ko: ", 습관 {count}개" },
   "settings.account": { en: "Account", ko: "계정" },
   "settings.accountBody": {

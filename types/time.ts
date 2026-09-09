@@ -84,6 +84,13 @@ export type Todo = {
 export type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
 /**
+ * When in the day something is taken. Three named moments rather than a clock
+ * time: nobody takes a supplement at 08:15 exactly, and a fixed hour would
+ * turn a reminder into an alarm that is always slightly wrong.
+ */
+export type TimeOfDay = "morning" | "afternoon" | "night";
+
+/**
  * Something you mean to do on certain days: a supplement, a step in a skincare
  * routine. Not a time block — it has no duration and never reaches the
  * timeline. All that is recorded is whether it happened.
@@ -96,16 +103,23 @@ export type Habit = {
   id: string;
   name: string;
   days: Weekday[];
+  /** Moments in the day. More than one means more than one dose. */
+  times: TimeOfDay[];
   /** Order in the list, as the person arranged it. */
   position: number;
   createdAt: string;
 };
 
-/** One day a habit was done. Absence is "not done"; there is no false. */
+/**
+ * One moment on one day that a habit was done. Absence is "not done"; there is
+ * no stored false. A twice-a-day habit has two of these per day, ticked
+ * independently.
+ */
 export type HabitCheck = {
   habitId: string;
   /** Day-window key, "yyyy-MM-dd". */
   date: string;
+  timeOfDay: TimeOfDay;
   checkedAt: string;
 };
 

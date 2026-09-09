@@ -42,9 +42,15 @@ route to write**.
 ## Habits
 
 `habits.sql` is a later addition and runs on top of `schema.sql`. It adds
-`habits` (a name plus the weekdays it applies to) and `habit_checks` (one row
-per day a habit was done). Until it is run, the habits card and its Settings
-panel are the only things that fail — the rest of the app is unaffected.
+`habits` (a name, the weekdays it applies to, and the moments of the day it
+belongs to) and `habit_checks` (one row per moment per day a habit was done).
+Until it is run, the habits card and its Settings panel are the only things
+that fail — the rest of the app is unaffected.
+
+A habit set to more than one moment is a habit taken more than once, so a
+check is keyed by `(habit_id, date, time_of_day)` rather than by the day
+alone. The file is safe to re-run: an install created before moments existed
+is upgraded in place, and every existing tick becomes a morning tick.
 
 An account starts with **no habits**, on purpose. A default list would mean
 shipping one person's supplements to every account that signs in, and writing

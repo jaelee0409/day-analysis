@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Button, Card, PanelTitle } from "@/components/ui/primitives";
-import { EVERY_DAY, isEveryDay, toggleDay } from "@/lib/habits";
+import { EVERY_DAY, TIMES_OF_DAY, isEveryDay, toggleDay, toggleTime } from "@/lib/habits";
+import type { MessageKey } from "@/lib/i18n";
 import { useLocale } from "@/lib/locale-context";
 import { storage } from "@/lib/storage";
 import { formatWeekdayIndex } from "@/lib/time";
-import type { Habit, Weekday } from "@/types/time";
+import type { Habit, TimeOfDay, Weekday } from "@/types/time";
 
 /** A chevron, reused pointing either way. */
 function Chevron({ up }: { up: boolean }) {
@@ -49,7 +50,7 @@ export function HabitEditor() {
     const name = draft.trim();
     if (!name) return;
     setDraft("");
-    await storage.createHabit(name, [...EVERY_DAY]);
+    await storage.createHabit(name, [...EVERY_DAY], ["morning"]);
     await reload();
   };
 
@@ -67,6 +68,15 @@ export function HabitEditor() {
       current ? current.map((h) => (h.id === habit.id ? { ...h, days } : h)) : current,
     );
     await storage.updateHabit(habit.id, { days });
+  };
+
+  const setTimes = async (habit: Habit, time: TimeOfDay) => {
+    const times = toggleTime(habit.times, time);
+    if (times === habit.times) return; // the last moment cannot be removed
+    setHabits((current) =>
+      current ? current.map((h) => (h.id === habit.id ? { ...h, times } : h)) : current,
+    );
+    await storage.updateHabit(habit.id, { times });
   };
 
   const move = async (index: number, by: -1 | 1) => {
@@ -176,6 +186,42 @@ export function HabitEditor() {
               </div>
               {isEveryDay(habit.days) ? (
                 <span className="text-[11.5px] text-faint">{t("settings.habitEveryDay")}</span>
+              ) : null}
+            </div>
+
+            {/* When in the day, on its own line: picking two here means two
+                doses, and the home page asks about each separately. */}
+            <div className="mt-1.5 flex flex-wrap items-center gap-2 pl-2">
+              <div
+                role="group"
+                aria-label={t("settings.habitTimes", { name: habit.name })}
+                className="flex gap-1"
+              >
+                {TIMES_OF_DAY.map((time) => {
+                  const on = habit.times.includes(time);
+                  const label = t(`habits.${time}` as MessageKey);
+                  return (
+                    <button
+                      key={time}
+                      type="button"
+                      onClick={() => void setTimes(habit, time)}
+                      aria-pressed={on}
+                      aria-label={t("settings.habitTime", { time: label, name: habit.name })}
+                      className={`h-[26px] rounded-md border px-2.5 text-[11.5px] font-medium transition-colors ${
+                        on
+                          ? "border-ink bg-ink text-white"
+                          : "border-line bg-surface text-muted hover:border-[#cfd4d4] hover:text-ink"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+              {habit.times.length > 1 ? (
+                <span className="text-[11.5px] text-faint">
+                  {t("settings.habitDoses", { count: habit.times.length })}
+                </span>
               ) : null}
             </div>
           </li>

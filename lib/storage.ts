@@ -12,7 +12,7 @@
  */
 
 import { ALL_CATEGORY_IDS } from "@/lib/categories";
-import { EVERY_DAY } from "@/lib/habits";
+import { EVERY_DAY, TIMES_OF_DAY } from "@/lib/habits";
 import { supabase } from "@/lib/supabase";
 import { blockRange, offsetToClock } from "@/lib/time";
 import type {
@@ -23,6 +23,7 @@ import type {
   NewTimeBlock,
   Settings,
   TimeBlock,
+  TimeOfDay,
   Todo,
   Weekday,
 } from "@/types/time";
@@ -80,16 +81,27 @@ function toBlockRow(block: TimeBlock, userId: string) {
 
 const BLOCK_COLUMNS = "id,date,title,category,start_time,end_time,interval,created_at,updated_at";
 
-const HABIT_COLUMNS = "id,name,days,position,created_at";
+const HABIT_COLUMNS = "id,name,days,times,position,created_at";
+
+/** One tick is a habit and a moment, never a habit alone. */
+export function checkKey(habitId: string, timeOfDay: TimeOfDay): string {
+  return habitId + "|" + timeOfDay;
+}
 
 function toHabit(row: Record<string, unknown>): Habit {
   // Postgres hands smallint[] back as numbers; anything outside 0-6 could only
   // come from a hand-edited row, and a habit with no days would never show.
   const days = ((row.days ?? []) as number[]).filter((d) => d >= 0 && d <= 6) as Weekday[];
+  const times = ((row.times ?? []) as string[]).filter((t) =>
+    TIMES_OF_DAY.includes(t as TimeOfDay),
+  ) as TimeOfDay[];
   return {
     id: row.id as string,
     name: row.name as string,
     days: days.length > 0 ? days : [...EVERY_DAY],
+    // A habit with no moment would never be asked about, and morning is where
+    // a row written before this column existed belongs anyway.
+    times: times.length > 0 ? times : ["morning"],
     position: (row.position as number) ?? 0,
     createdAt: row.created_at as string,
   };
@@ -434,13 +446,14 @@ export const storage = {
     return (data ?? []).map((row) => toHabit(row as Record<string, unknown>));
   },
 
-  async createHabit(name: string, days: Weekday[]): Promise<Habit> {
+  async createHabit(name: string, days: Weekday[], times: TimeOfDay[]): Promise<Habit> {
     const userId = await currentUserId();
     const existing = await storage.getHabits();
     const habit: Habit = {
       id: uid(),
       name,
       days,
+      times,
       position: existing.length,
       createdAt: now(),
     };
@@ -449,6 +462,7 @@ export const storage = {
       user_id: userId,
       name: habit.name,
       days: habit.days,
+      times: habit.times,
       position: habit.position,
       created_at: habit.createdAt,
     });
@@ -456,7 +470,10 @@ export const storage = {
     return habit;
   },
 
-  async updateHabit(id: string, patch: { name?: string; days?: Weekday[] }): Promise<void> {
+  async updateHabit(
+    id: string,
+    patch: { name?: string; days?: Weekday[]; times?: TimeOfDay[] },
+  ): Promise<void> {
     const { error } = await supabase().from("habits").update(patch).eq("id", id);
     fail("Could not update that habit", error);
   },
@@ -475,47 +492,45 @@ export const storage = {
     }
   },
 
-  /** The ids ticked on one day. */
+  /**
+   * What was ticked on one day, as checkKey strings. A twice-a-day habit has
+   * one key per moment, so the two ticks never stand in for each other.
+   */
   async getHabitChecks(date: string): Promise<string[]> {
-    const { data, error } = await supabase().from("habit_checks").select("habit_id").eq("date", date);
-    fail("Could not read what you ticked off", error);
-    return (data ?? []).map((row) => row.habit_id as string);
-  },
-
-  /** Every check in a run of days, keyed by day. Used by the streak counts. */
-  async getHabitChecksForDays(dates: string[]): Promise<Record<string, string[]>> {
-    const out: Record<string, string[]> = {};
-    for (const date of dates) out[date] = [];
-    if (dates.length === 0) return out;
-
     const { data, error } = await supabase()
       .from("habit_checks")
-      .select("habit_id,date")
-      .in("date", dates);
+      .select("habit_id,time_of_day")
+      .eq("date", date);
     fail("Could not read what you ticked off", error);
-    for (const row of data ?? []) {
-      const date = row.date as string;
-      if (out[date]) out[date].push(row.habit_id as string);
-    }
-    return out;
+    return (data ?? []).map((row) => checkKey(row.habit_id as string, row.time_of_day as TimeOfDay));
   },
 
   /** Ticking writes a row; unticking removes it. There is no stored false. */
-  async setHabitCheck(habitId: string, date: string, checked: boolean): Promise<void> {
+  async setHabitCheck(
+    habitId: string,
+    date: string,
+    timeOfDay: TimeOfDay,
+    checked: boolean,
+  ): Promise<void> {
     const client = supabase();
     if (!checked) {
       const { error } = await client
         .from("habit_checks")
         .delete()
         .eq("habit_id", habitId)
-        .eq("date", date);
+        .eq("date", date)
+        .eq("time_of_day", timeOfDay);
       fail("Could not untick that", error);
       return;
     }
     const userId = await currentUserId();
-    const { error } = await client
-      .from("habit_checks")
-      .upsert({ habit_id: habitId, user_id: userId, date, checked_at: now() });
+    const { error } = await client.from("habit_checks").upsert({
+      habit_id: habitId,
+      user_id: userId,
+      date,
+      time_of_day: timeOfDay,
+      checked_at: now(),
+    });
     fail("Could not tick that off", error);
   },
 
@@ -531,18 +546,21 @@ export const storage = {
       storage.getAllHabitChecks(),
     ]);
     return JSON.stringify(
-      { version: 5, exportedAt: now(), settings, blocks, experiments, todos, habits, habitChecks },
+      { version: 6, exportedAt: now(), settings, blocks, experiments, todos, habits, habitChecks },
       null,
       2,
     );
   },
 
   async getAllHabitChecks(): Promise<HabitCheck[]> {
-    const { data, error } = await supabase().from("habit_checks").select("habit_id,date,checked_at");
+    const { data, error } = await supabase()
+      .from("habit_checks")
+      .select("habit_id,date,time_of_day,checked_at");
     fail("Could not read your habit history", error);
     return (data ?? []).map((row) => ({
       habitId: row.habit_id as string,
       date: row.date as string,
+      timeOfDay: row.time_of_day as TimeOfDay,
       checkedAt: row.checked_at as string,
     }));
   },
@@ -613,6 +631,7 @@ export const storage = {
           user_id: userId,
           name: h.name,
           days: h.days,
+          times: h.times,
           position: h.position ?? index,
           created_at: h.createdAt,
         })),
@@ -628,6 +647,7 @@ export const storage = {
             habit_id: c.habitId,
             user_id: userId,
             date: c.date,
+            time_of_day: c.timeOfDay,
             checked_at: c.checkedAt,
           })),
         );
