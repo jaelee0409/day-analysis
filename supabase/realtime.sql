@@ -9,3 +9,7 @@
 
 alter publication supabase_realtime add table public.blocks;
 alter publication supabase_realtime add table public.todos;
+
+-- Requires supabase/habits.sql to have been run first.
+alter publication supabase_realtime add table public.habits;
+alter publication supabase_realtime add table public.habit_checks;

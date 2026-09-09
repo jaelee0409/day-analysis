@@ -39,14 +39,27 @@ route to write**.
 5. Export your JSON from Settings and import it once, mapping `snake_case`
    columns to the `camelCase` model.
 
+## Habits
+
+`habits.sql` is a later addition and runs on top of `schema.sql`. It adds
+`habits` (a name plus the weekdays it applies to) and `habit_checks` (one row
+per day a habit was done). Until it is run, the habits card and its Settings
+panel are the only things that fail — the rest of the app is unaffected.
+
+An account starts with **no habits**, on purpose. A default list would mean
+shipping one person's supplements to every account that signs in, and writing
+them into this repository; what someone takes and when is theirs to enter.
+
 ## Live updates between devices
 
 `schema.sql` is enough to sync: every screen refetches when its tab is focused
 again, which covers recording on a phone and then looking at a laptop.
 
 For a screen to update while it is still open, also run `realtime.sql`, which
-adds `blocks` and `todos` to the `supabase_realtime` publication. Without it
-the subscription simply never fires and the focus refetch still covers you.
+adds `blocks`, `todos`, `habits` and `habit_checks` to the `supabase_realtime`
+publication. Without it the subscription simply never fires and the focus
+refetch still covers you. Run it after `habits.sql`, since it names those
+tables.
 
 ## The three things that are not just typing
 

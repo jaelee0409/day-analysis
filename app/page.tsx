@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { LocalArchiveNotice } from "@/components/auth/LocalArchiveNotice";
 import { DailySummary } from "@/components/dashboard/DailySummary";
 import { TimeDistribution } from "@/components/dashboard/TimeDistribution";
+import { HabitList } from "@/components/habits/HabitList";
 import { Timeline } from "@/components/timeline/Timeline";
 import { TodoList } from "@/components/todo/TodoList";
 import { DayPicker } from "@/components/ui/DayPicker";
@@ -105,6 +106,9 @@ export default function HomePage() {
 
         <div className="grid gap-5">
           <DailySummary totals={totals} blocks={blocks} dayStart={dayStart} />
+          {/* Follows the date picker like everything else here, so a day you
+              forgot to tick can still be ticked. */}
+          <HabitList date={key} />
           <TodoList />
           {/* The observations live under the bars rather than in a card of
               their own, which would print the same categories twice. */}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { HabitEditor } from "@/components/habits/HabitEditor";
 import { CategoryIcon } from "@/components/ui/CategoryIcon";
 import { useAuth } from "@/lib/auth-context";
 import { LOCALES, LOCALE_LABEL, type MessageKey } from "@/lib/i18n";
@@ -154,6 +155,8 @@ export default function SettingsPage() {
           </ul>
         </Card>
 
+        <HabitEditor />
+
         <Card className="p-5">
           <PanelTitle aside={session?.user.email ?? undefined}>{t("settings.account")}</PanelTitle>
           <p className="mt-2 max-w-[52ch] text-[13.5px] leading-relaxed text-muted">
@@ -243,25 +246,24 @@ export default function SettingsPage() {
 
           {pending ? (
             <div className="mt-4 rounded-xl border border-line bg-[#fafbfb] p-4">
+              {/* One sentence, one entry: the counts are placeholders rather
+                  than English fragments spliced together in JSX. */}
               <p className="text-[13.5px] leading-relaxed text-ink-soft">
-                That file holds{" "}
-                <span className="font-medium tabular-nums text-ink">
-                  {pending.summary.blocks} {pending.summary.blocks === 1 ? "block" : "blocks"}
-                </span>{" "}
-                across{" "}
-                <span className="font-medium tabular-nums text-ink">
-                  {pending.summary.days} {pending.summary.days === 1 ? "day" : "days"}
-                </span>
-                {pending.summary.todos > 0
-                  ? `, ${pending.summary.todos} ${pending.summary.todos === 1 ? "reminder" : "reminders"}`
-                  : ""}
-                {pending.summary.experiments > 0
-                  ? `, ${pending.summary.experiments} experiment ${
-                      pending.summary.experiments === 1 ? "run" : "runs"
-                    }`
-                  : ""}
-                .
-                Importing replaces everything in this browser.
+                {t("settings.importSummary", {
+                  blocks: t("settings.importBlocks", { count: pending.summary.blocks }),
+                  days: t("settings.importDays", { count: pending.summary.days }),
+                  extra: [
+                    pending.summary.todos > 0
+                      ? t("settings.importTodos", { count: pending.summary.todos })
+                      : "",
+                    pending.summary.experiments > 0
+                      ? t("settings.importRuns", { count: pending.summary.experiments })
+                      : "",
+                    pending.summary.habits
+                      ? t("settings.importHabits", { count: pending.summary.habits })
+                      : "",
+                  ].join(""),
+                })}
               </p>
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <Button
@@ -272,10 +274,10 @@ export default function SettingsPage() {
                     window.location.reload();
                   }}
                 >
-                  Replace everything
+                  {t("settings.replaceEverything")}
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => setPending(null)}>
-                  Cancel
+                  {t("common.cancel")}
                 </Button>
               </div>
             </div>

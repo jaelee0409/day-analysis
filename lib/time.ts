@@ -1,7 +1,7 @@
 import { addDays, format, isValid, parse, startOfWeek, subDays } from "date-fns";
 import { ko } from "date-fns/locale";
 import type { Locale } from "@/lib/i18n";
-import type { Interval, TimeBlock } from "@/types/time";
+import type { Interval, TimeBlock, Weekday } from "@/types/time";
 
 /**
  * Formatting is the one place the two languages genuinely diverge in code:
@@ -170,6 +170,22 @@ export function formatDayShort(key: string, locale: Locale = "en"): string {
 /** "Mon" / "월" */
 export function formatWeekday(key: string, locale: Locale = "en"): string {
   const date = parseDateKey(key);
+  return locale === "ko" ? format(date, "EEE", { locale: DATE_FNS.ko }) : format(date, "EEE");
+}
+
+/** Which day of the week a window key falls on. 0 = Sunday. */
+export function weekdayOf(key: string): Weekday {
+  return parseDateKey(key).getDay() as Weekday;
+}
+
+/**
+ * "Mon" / "월" for a weekday index rather than a date, which is what a
+ * schedule picker needs. Anchored on a known Sunday so the lookup goes
+ * through date-fns like every other name in this file.
+ */
+const SUNDAY = new Date(2024, 0, 7);
+export function formatWeekdayIndex(day: Weekday, locale: Locale = "en"): string {
+  const date = addDays(SUNDAY, day);
   return locale === "ko" ? format(date, "EEE", { locale: DATE_FNS.ko }) : format(date, "EEE");
 }
 

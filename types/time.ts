@@ -80,6 +80,35 @@ export type Todo = {
   completedAt?: string;
 };
 
+/** 0 = Sunday .. 6 = Saturday, matching Date#getDay. */
+export type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+
+/**
+ * Something you mean to do on certain days: a supplement, a step in a skincare
+ * routine. Not a time block — it has no duration and never reaches the
+ * timeline. All that is recorded is whether it happened.
+ *
+ * The schedule is a set of weekdays rather than a recurrence rule. Two things
+ * that alternate are two habits holding complementary sets, so exactly one of
+ * them is scheduled on any given night.
+ */
+export type Habit = {
+  id: string;
+  name: string;
+  days: Weekday[];
+  /** Order in the list, as the person arranged it. */
+  position: number;
+  createdAt: string;
+};
+
+/** One day a habit was done. Absence is "not done"; there is no false. */
+export type HabitCheck = {
+  habitId: string;
+  /** Day-window key, "yyyy-MM-dd". */
+  date: string;
+  checkedAt: string;
+};
+
 export type CategoryMeta = {
   id: ActivityCategory;
   label: string;

@@ -12,15 +12,19 @@
  */
 
 import { ALL_CATEGORY_IDS } from "@/lib/categories";
+import { EVERY_DAY } from "@/lib/habits";
 import { supabase } from "@/lib/supabase";
 import { blockRange, offsetToClock } from "@/lib/time";
 import type {
   ActivityCategory,
   ExperimentSession,
+  Habit,
+  HabitCheck,
   NewTimeBlock,
   Settings,
   TimeBlock,
   Todo,
+  Weekday,
 } from "@/types/time";
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -75,6 +79,21 @@ function toBlockRow(block: TimeBlock, userId: string) {
 }
 
 const BLOCK_COLUMNS = "id,date,title,category,start_time,end_time,interval,created_at,updated_at";
+
+const HABIT_COLUMNS = "id,name,days,position,created_at";
+
+function toHabit(row: Record<string, unknown>): Habit {
+  // Postgres hands smallint[] back as numbers; anything outside 0-6 could only
+  // come from a hand-edited row, and a habit with no days would never show.
+  const days = ((row.days ?? []) as number[]).filter((d) => d >= 0 && d <= 6) as Weekday[];
+  return {
+    id: row.id as string,
+    name: row.name as string,
+    days: days.length > 0 ? days : [...EVERY_DAY],
+    position: (row.position as number) ?? 0,
+    createdAt: row.created_at as string,
+  };
+}
 
 function uid(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
@@ -177,6 +196,21 @@ function sortBlocks(blocks: TimeBlock[], dayStart: number): TimeBlock[] {
     if (a.date !== b.date) return a.date < b.date ? -1 : 1;
     return blockRange(a, dayStart).start - blockRange(b, dayStart).start;
   });
+}
+
+/**
+ * What "everything" means, in delete order: habit_checks before habits, since
+ * a check points at a habit.
+ */
+const RECORD_TABLES = ["blocks", "experiment_sessions", "todos"] as const;
+const EVERY_TABLE = ["habit_checks", "habits", ...RECORD_TABLES] as const;
+
+async function clearTables(userId: string, tables: readonly string[]): Promise<void> {
+  const client = supabase();
+  for (const table of tables) {
+    const { error } = await client.from(table).delete().eq("user_id", userId);
+    fail(`Could not clear ${table}`, error);
+  }
 }
 
 /* ------------------------------------------------------------------ *
@@ -389,16 +423,128 @@ export const storage = {
     fail("Could not clear finished reminders", error);
   },
 
+  /* ---------------- habits ---------------- */
+
+  async getHabits(): Promise<Habit[]> {
+    const { data, error } = await supabase()
+      .from("habits")
+      .select(HABIT_COLUMNS)
+      .order("position", { ascending: true });
+    fail("Could not read your habits", error);
+    return (data ?? []).map((row) => toHabit(row as Record<string, unknown>));
+  },
+
+  async createHabit(name: string, days: Weekday[]): Promise<Habit> {
+    const userId = await currentUserId();
+    const existing = await storage.getHabits();
+    const habit: Habit = {
+      id: uid(),
+      name,
+      days,
+      position: existing.length,
+      createdAt: now(),
+    };
+    const { error } = await supabase().from("habits").insert({
+      id: habit.id,
+      user_id: userId,
+      name: habit.name,
+      days: habit.days,
+      position: habit.position,
+      created_at: habit.createdAt,
+    });
+    fail("Could not add that habit", error);
+    return habit;
+  },
+
+  async updateHabit(id: string, patch: { name?: string; days?: Weekday[] }): Promise<void> {
+    const { error } = await supabase().from("habits").update(patch).eq("id", id);
+    fail("Could not update that habit", error);
+  },
+
+  async deleteHabit(id: string): Promise<void> {
+    const { error } = await supabase().from("habits").delete().eq("id", id);
+    fail("Could not delete that habit", error);
+  },
+
+  /** Ids in the order they should appear. Positions are rewritten to match. */
+  async reorderHabits(ids: string[]): Promise<void> {
+    const client = supabase();
+    for (let index = 0; index < ids.length; index += 1) {
+      const { error } = await client.from("habits").update({ position: index }).eq("id", ids[index]);
+      fail("Could not reorder your habits", error);
+    }
+  },
+
+  /** The ids ticked on one day. */
+  async getHabitChecks(date: string): Promise<string[]> {
+    const { data, error } = await supabase().from("habit_checks").select("habit_id").eq("date", date);
+    fail("Could not read what you ticked off", error);
+    return (data ?? []).map((row) => row.habit_id as string);
+  },
+
+  /** Every check in a run of days, keyed by day. Used by the streak counts. */
+  async getHabitChecksForDays(dates: string[]): Promise<Record<string, string[]>> {
+    const out: Record<string, string[]> = {};
+    for (const date of dates) out[date] = [];
+    if (dates.length === 0) return out;
+
+    const { data, error } = await supabase()
+      .from("habit_checks")
+      .select("habit_id,date")
+      .in("date", dates);
+    fail("Could not read what you ticked off", error);
+    for (const row of data ?? []) {
+      const date = row.date as string;
+      if (out[date]) out[date].push(row.habit_id as string);
+    }
+    return out;
+  },
+
+  /** Ticking writes a row; unticking removes it. There is no stored false. */
+  async setHabitCheck(habitId: string, date: string, checked: boolean): Promise<void> {
+    const client = supabase();
+    if (!checked) {
+      const { error } = await client
+        .from("habit_checks")
+        .delete()
+        .eq("habit_id", habitId)
+        .eq("date", date);
+      fail("Could not untick that", error);
+      return;
+    }
+    const userId = await currentUserId();
+    const { error } = await client
+      .from("habit_checks")
+      .upsert({ habit_id: habitId, user_id: userId, date, checked_at: now() });
+    fail("Could not tick that off", error);
+  },
+
   /* ---------------- whole-account operations ---------------- */
 
   async exportAll(): Promise<string> {
-    const [settings, blocks, experiments, todos] = await Promise.all([
+    const [settings, blocks, experiments, todos, habits, habitChecks] = await Promise.all([
       storage.getSettings(),
       storage.getAllBlocks(),
       storage.getExperimentSessions(),
       storage.getTodos(),
+      storage.getHabits(),
+      storage.getAllHabitChecks(),
     ]);
-    return JSON.stringify({ version: 4, exportedAt: now(), settings, blocks, experiments, todos }, null, 2);
+    return JSON.stringify(
+      { version: 5, exportedAt: now(), settings, blocks, experiments, todos, habits, habitChecks },
+      null,
+      2,
+    );
+  },
+
+  async getAllHabitChecks(): Promise<HabitCheck[]> {
+    const { data, error } = await supabase().from("habit_checks").select("habit_id,date,checked_at");
+    fail("Could not read your habit history", error);
+    return (data ?? []).map((row) => ({
+      habitId: row.habit_id as string,
+      date: row.date as string,
+      checkedAt: row.checked_at as string,
+    }));
   },
 
   /**
@@ -411,11 +557,17 @@ export const storage = {
     blocks: TimeBlock[];
     experiments?: ExperimentSession[];
     todos?: Todo[];
+    habits?: Habit[];
+    habitChecks?: HabitCheck[];
   }): Promise<void> {
     const userId = await currentUserId();
     const client = supabase();
 
-    await storage.clearAll();
+    // A file written before habits existed carries none, and wiping the list
+    // to restore nothing would be a silent loss. Habits are only replaced
+    // when the file actually has something to put back.
+    const restoresHabits = Array.isArray(payload.habits);
+    await clearTables(userId, restoresHabits ? EVERY_TABLE : RECORD_TABLES);
 
     for (let i = 0; i < payload.blocks.length; i += 500) {
       const chunk = payload.blocks.slice(i, i + 500).map((b) => toBlockRow(b, userId));
@@ -454,15 +606,39 @@ export const storage = {
       fail("Could not import your reminders", error);
     }
 
+    if (restoresHabits && payload.habits && payload.habits.length > 0) {
+      const { error } = await client.from("habits").insert(
+        payload.habits.map((h, index) => ({
+          id: h.id,
+          user_id: userId,
+          name: h.name,
+          days: h.days,
+          position: h.position ?? index,
+          created_at: h.createdAt,
+        })),
+      );
+      fail("Could not import your habits", error);
+
+      // Checks reference habits, so they can only go in once those exist.
+      const known = new Set(payload.habits.map((h) => h.id));
+      const checks = (payload.habitChecks ?? []).filter((c) => known.has(c.habitId));
+      for (let i = 0; i < checks.length; i += 500) {
+        const { error: checkError } = await client.from("habit_checks").insert(
+          checks.slice(i, i + 500).map((c) => ({
+            habit_id: c.habitId,
+            user_id: userId,
+            date: c.date,
+            checked_at: c.checkedAt,
+          })),
+        );
+        fail("Could not import your habit history", checkError);
+      }
+    }
+
     if (payload.settings) await storage.saveSettings(payload.settings);
   },
 
   async clearAll(): Promise<void> {
-    const userId = await currentUserId();
-    const client = supabase();
-    for (const table of ["blocks", "experiment_sessions", "todos"]) {
-      const { error } = await client.from(table).delete().eq("user_id", userId);
-      fail(`Could not clear ${table}`, error);
-    }
+    await clearTables(await currentUserId(), EVERY_TABLE);
   },
 };

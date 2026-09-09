@@ -108,6 +108,18 @@ export const DICTIONARY = {
   "todo.markNotDone": { en: "Mark {text} as not done", ko: "{text} 미완료로 표시" },
   "todo.deleteItem": { en: "Delete {text}", ko: "{text} 삭제" },
 
+  /* ---------------- habits ---------------- */
+  "habits.title": { en: "Habits", ko: "습관" },
+  "habits.done": { en: "{done} of {total}", ko: "{total}개 중 {done}개" },
+  "habits.allDone": { en: "all done", ko: "모두 완료" },
+  "habits.empty": {
+    en: "Nothing on the list yet. Add what you repeat — supplements, skincare — in Settings.",
+    ko: "아직 목록이 비어 있습니다. 영양제나 스킨케어처럼 반복하는 일은 설정에서 추가하세요.",
+  },
+  "habits.noneToday": { en: "Nothing scheduled for this day.", ko: "이 날에는 예정된 것이 없습니다." },
+  "habits.markDone": { en: "Mark {name} as done", ko: "{name} 완료로 표시" },
+  "habits.markNotDone": { en: "Mark {name} as not done", ko: "{name} 미완료로 표시" },
+
   /* ---------------- dashboard ---------------- */
   "dashboard.question": { en: "What does the pattern say?", ko: "어떤 패턴이 보이나요?" },
   "dashboard.daysOf": { en: "{active} of {total} days recorded", ko: "{total}일 중 {active}일 기록함" },
@@ -268,6 +280,24 @@ export const DICTIONARY = {
   },
   "settings.countsAsFocused": { en: "counts as focused work", ko: "집중 시간에 포함" },
   "settings.enableCategory": { en: "Enable {label}", ko: "{label} 사용" },
+  "settings.habits": { en: "Habits", ko: "습관" },
+  "settings.habitsOn": { en: "{count} on the list", ko: "목록에 {count}개" },
+  "settings.habitsBody": {
+    en: "Things you repeat rather than spend time on: a supplement, a step in a routine. Pick the days each one applies to. Only that day's habits appear on the home page, so two things that alternate can hold opposite nights.",
+    ko: "시간을 쓰는 일이 아니라 반복하는 일입니다. 영양제, 루틴의 한 단계 같은 것들입니다. 각각 어느 요일에 해당하는지 골라 주세요. 홈 화면에는 그날의 습관만 보이므로, 번갈아 하는 두 가지는 서로 다른 날을 맡으면 됩니다.",
+  },
+  "settings.habitsEmpty": { en: "Nothing here yet — add your first one below.", ko: "아직 비어 있습니다. 아래에서 첫 항목을 추가하세요." },
+  "settings.habitAdd": { en: "Add", ko: "추가" },
+  "settings.habitPlaceholder": { en: "A supplement, a step, anything repeated", ko: "영양제, 루틴의 한 단계 등" },
+  "settings.habitNew": { en: "Add a habit", ko: "습관 추가" },
+  "settings.habitRename": { en: "Name of {name}", ko: "{name}의 이름" },
+  "settings.habitDelete": { en: "Delete {name}", ko: "{name} 삭제" },
+  "settings.habitUp": { en: "Move {name} up", ko: "{name} 위로" },
+  "settings.habitDown": { en: "Move {name} down", ko: "{name} 아래로" },
+  "settings.habitDays": { en: "Days for {name}", ko: "{name}의 요일" },
+  "settings.habitDay": { en: "{day} for {name}", ko: "{name}: {day}" },
+  "settings.habitEveryDay": { en: "every day", ko: "매일" },
+  "settings.importHabits": { en: ", {count} habits", ko: ", 습관 {count}개" },
   "settings.account": { en: "Account", ko: "계정" },
   "settings.accountBody": {
     en: "Your days live in your account, so this browser and your phone show the same record. Nobody else can read it.",
